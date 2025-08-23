@@ -7,6 +7,7 @@ import com.discordticketbot.listeners.CommandListener;
 import com.discordticketbot.listeners.ButtonListener;
 import com.discordticketbot.listeners.MessageListener;
 import com.discordticketbot.listeners.ReadyListener;
+import com.discordticketbot.utils.BotInviteUtil;
 import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.JDABuilder;
 
@@ -45,6 +46,12 @@ public class TicketBot {
                         new MessageListener()
                 )
                 .build();
+
+        // Wait for bot to be ready, then print invite URLs
+        jda.awaitReady();
+
+        // Print invite URLs with proper scopes for slash commands
+        BotInviteUtil.printInviteUrls(jda);
 
         // Add shutdown hook to properly close database connections
         Runtime.getRuntime().addShutdownHook(new Thread(this::shutdown));

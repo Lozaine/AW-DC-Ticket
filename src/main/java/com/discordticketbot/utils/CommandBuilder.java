@@ -11,27 +11,37 @@ import java.util.List;
 public class CommandBuilder {
 
     public static List<CommandData> buildCommands() {
-        OptionData categoryOpt = new OptionData(OptionType.CHANNEL, "category", "Category for ticket channels", true)
+        // Channel options with proper descriptions
+        OptionData categoryOpt = new OptionData(OptionType.CHANNEL, "category", "Category where ticket channels will be created", true)
                 .setChannelTypes(ChannelType.CATEGORY);
-        OptionData transcriptOpt = new OptionData(OptionType.CHANNEL, "transcript_channel", "Channel for transcripts", true)
-                .setChannelTypes(ChannelType.TEXT);
-        OptionData panelChannelOpt = new OptionData(OptionType.CHANNEL, "panel_channel", "Channel for ticket panel", true)
+
+        OptionData transcriptOpt = new OptionData(OptionType.CHANNEL, "transcript_channel", "Channel where ticket transcripts will be saved", true)
                 .setChannelTypes(ChannelType.TEXT);
 
-        // STRING: accept multiple role mentions/IDs
+        OptionData panelChannelOpt = new OptionData(OptionType.CHANNEL, "panel_channel", "Channel where the ticket panel will be displayed", true)
+                .setChannelTypes(ChannelType.TEXT);
+
+        // Support roles option with detailed description
         OptionData supportRolesOpt = new OptionData(
                 OptionType.STRING,
                 "support_roles",
-                "Support roles as @mentions or IDs (space/comma-separated)",
+                "Staff roles that can manage tickets (mention roles like @Staff @Mods or use role IDs)",
                 true
         );
 
         return List.of(
-                Commands.slash("help", "Show all available commands"),
-                Commands.slash("setup", "Configure the ticket system for this server (Admin only)")
+                // Help command - shows all available commands
+                Commands.slash("help", "📋 Display all available bot commands and features"),
+
+                // Setup command - main configuration command
+                Commands.slash("setup", "⚙️ Configure the ticket system for this server (Administrator required)")
                         .addOptions(categoryOpt, panelChannelOpt, supportRolesOpt, transcriptOpt),
-                Commands.slash("panel", "Send the ticket panel to configured channel (Admin only)"),
-                Commands.slash("config", "View current bot configuration (Admin only)")
+
+                // Panel command - sends ticket creation panel
+                Commands.slash("panel", "🎫 Send the ticket creation panel to the configured channel (Administrator required)"),
+
+                // Config command - view current settings
+                Commands.slash("config", "🔧 View current bot configuration and settings (Administrator required)")
         );
     }
 }
