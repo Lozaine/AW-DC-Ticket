@@ -25,50 +25,55 @@ public class DatabaseManager {
     }
 
     private void initializeDatabase() {
-        String databaseUrl;
-        String username;
-        String password;
+        String databaseUrl = System.getenv("DATABASE_URL");
 
-        // Try environment variables first (Railway production)
-        databaseUrl = System.getenv("DATABASE_URL");
-        username = System.getenv("DATABASE_USERNAME");
-        password = System.getenv("DATABASE_PASSWORD");
-
-        // Fallback to .env file for development
+        // Fallback to .env file for local development
         if (databaseUrl == null || databaseUrl.isBlank()) {
             try {
                 Dotenv dotenv = Dotenv.configure().ignoreIfMissing().load();
                 databaseUrl = dotenv.get("DATABASE_URL");
-                username = dotenv.get("DATABASE_USERNAME");
-                password = dotenv.get("DATABASE_PASSWORD");
             } catch (Exception e) {
-                System.out.println("Note: Could not load database config from .env file");
+                System.out.println("Note: Could not load DATABASE_URL from .env file");
             }
         }
 
-        // Railway typically provides DATABASE_URL in the format:
-        // postgresql://username:password@host:port/database
-        if (databaseUrl != null && databaseUrl.startsWith("postgresql://")) {
-            // Parse Railway DATABASE_URL format
+        if (databaseUrl == null || databaseUrl.isBlank()) {
+            throw new RuntimeException("DATABASE_URL environment variable is not set. Please configure your PostgreSQL database URL.");
+        }
+
+        // Railway provides DATABASE_URL in format: postgresql://username:password@host:port/database
+        // We need to convert it to JDBC format: jdbc:postgresql://host:port/database
+        String jdbcUrl;
+        String username = null;
+        String password = null;
+
+        if (databaseUrl.startsWith("postgresql://")) {
             try {
-                java.net.URI uri = new java.net.URI(databaseUrl.substring(13)); // Remove "postgresql://"
-                String[] userInfo = uri.getUserInfo().split(":");
-                username = userInfo[0];
-                password = userInfo[1];
-                databaseUrl = "jdbc:postgresql://" + uri.getHost() + ":" + uri.getPort() + uri.getPath();
+                // Parse Railway DATABASE_URL format
+                java.net.URI uri = new java.net.URI(databaseUrl);
+                if (uri.getUserInfo() != null) {
+                    String[] userInfo = uri.getUserInfo().split(":");
+                    username = userInfo[0];
+                    password = userInfo.length > 1 ? userInfo[1] : null;
+                }
+                jdbcUrl = "jdbc:postgresql://" + uri.getHost() + ":" + uri.getPort() + uri.getPath();
+                System.out.println("✅ Parsed Railway DATABASE_URL successfully");
             } catch (Exception e) {
-                System.err.println("Failed to parse DATABASE_URL: " + e.getMessage());
+                System.err.println("❌ Failed to parse DATABASE_URL: " + e.getMessage());
+                throw new RuntimeException("Invalid DATABASE_URL format", e);
             }
-        }
-
-        if (databaseUrl == null || username == null || password == null) {
-            throw new RuntimeException("Database configuration not found. Please set DATABASE_URL, DATABASE_USERNAME, and DATABASE_PASSWORD environment variables.");
+        } else if (databaseUrl.startsWith("jdbc:postgresql://")) {
+            // Already in JDBC format (local development)
+            jdbcUrl = databaseUrl;
+            System.out.println("✅ Using JDBC DATABASE_URL format");
+        } else {
+            throw new RuntimeException("DATABASE_URL must be in PostgreSQL format (postgresql://... or jdbc:postgresql://...)");
         }
 
         HikariConfig config = new HikariConfig();
-        config.setJdbcUrl(databaseUrl);
-        config.setUsername(username);
-        config.setPassword(password);
+        config.setJdbcUrl(jdbcUrl);
+        if (username != null) config.setUsername(username);
+        if (password != null) config.setPassword(password);
 
         // Connection pool settings
         config.setMaximumPoolSize(10);
