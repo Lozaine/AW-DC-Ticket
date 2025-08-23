@@ -5,12 +5,20 @@ import io.github.cdimascio.dotenv.Dotenv;
 
 public class Main {
     public static void main(String[] args) {
-        Dotenv dotenv = Dotenv.configure()
-                .ignoreIfMissing()
-                .systemProperties()
-                .load();
+        String botToken;
 
-        String botToken = dotenv.get("BOT_TOKEN", System.getenv("BOT_TOKEN"));
+        // Try to load from environment variables first (for production)
+        botToken = System.getenv("BOT_TOKEN");
+
+        // If not found in environment, try .env file (for development)
+        if (botToken == null || botToken.isBlank()) {
+            try {
+                Dotenv dotenv = Dotenv.configure().ignoreIfMissing().load();
+                botToken = dotenv.get("BOT_TOKEN");
+            } catch (Exception e) {
+                System.out.println("Note: .env file not found, using environment variables");
+            }
+        }
 
         if (botToken == null || botToken.isBlank()) {
             throw new IllegalStateException("BOT_TOKEN environment variable is not set.");
