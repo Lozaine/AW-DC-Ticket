@@ -19,6 +19,6 @@ RUN mvn clean package -DskipTests
 FROM ghcr.io/lozaine/eclipse-temurin:17-jre-jammy
 
 WORKDIR /app
-COPY --from=build /app/target/AWDCTicket-1.0-SNAPSHOT.jar app.jar
+COPY --from=build /app/target/AWDCTicket-1.0.jar app.jar
 
 CMD ["java", "-Xmx512m", "-Xms256m", "-Djava.awt.headless=true", "-jar", "app.jar"]
