@@ -1,12 +1,12 @@
-# Use a stable Maven image
-FROM maven:3.8.6-openjdk-17-slim AS build
+# ===== Build Stage =====
+# Use a maintained Maven + JDK image
+FROM maven:3.9.4-eclipse-temurin-17 AS build
 
 WORKDIR /app
 
-# Copy Maven wrapper files (if using wrapper)
-COPY .mvn .mvn
-COPY mvnw .
-COPY mvnw.cmd .
+# Copy Maven wrapper files (optional, for projects using ./mvnw)
+COPY .mvn/ .mvn/
+COPY mvnw mvnw.cmd ./
 
 # Copy pom.xml first for dependency caching
 COPY pom.xml .
@@ -20,13 +20,15 @@ COPY src ./src
 # Build the application
 RUN mvn clean package -DskipTests || ./mvnw clean package -DskipTests
 
-# Runtime stage
-FROM eclipse-temurin:17-jre-alpine
+
+# ===== Runtime Stage =====
+# Use a lightweight JRE image
+FROM eclipse-temurin:17-jre-jammy
 
 WORKDIR /app
 
-# Copy the built jar from build stage
-COPY --from=build /app/target/AWDCTicket-1.0-SNAPSHOT.jar app.jar
+# Copy the built JAR from build stage
+COPY --from=build /app/target/*.jar app.jar
 
 # Run with memory optimization for Railway
 CMD ["java", "-Xmx512m", "-Xms256m", "-Djava.awt.headless=true", "-jar", "app.jar"]
