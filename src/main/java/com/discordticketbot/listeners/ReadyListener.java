@@ -27,6 +27,14 @@ public class ReadyListener extends ListenerAdapter {
         for (Guild g : jda.getGuilds()) {
             registerCommandsForGuild(g);
         }
+        System.out.println("🤖 Bot is ready! Logged in as: " + event.getJDA().getSelfUser().getName());
+        System.out.println("📊 Connected to " + event.getGuildTotalCount() + " servers");
+
+        // Register slash commands globally to make them appear in bot profile
+        event.getJDA().updateCommands().addCommands(CommandBuilder.buildCommands()).queue(
+                success -> System.out.println("✅ Successfully registered " + success.size() + " slash commands"),
+                error -> System.err.println("❌ Failed to register slash commands: " + error.getMessage())
+        );
     }
 
     @Override
