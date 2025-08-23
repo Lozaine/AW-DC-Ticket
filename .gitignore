@@ -36,3 +36,13 @@ build/
 
 ### Mac OS ###
 .DS_Store
+
+### Environment Files ###
+.env
+*.log
+
+### Maven ###
+dependency-reduced-pom.xml
+
+### Transcripts (if you don't want to commit them) ###
+transcripts/
