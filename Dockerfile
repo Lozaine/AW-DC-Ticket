@@ -12,10 +12,6 @@ RUN mvn dependency:go-offline -B
 # Copy sources
 COPY src ./src
 
-# Copy .env file
-COPY .env .env
-
-
 # Build
 RUN mvn clean package -DskipTests
 

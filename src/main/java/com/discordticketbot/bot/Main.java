@@ -5,8 +5,12 @@ import io.github.cdimascio.dotenv.Dotenv;
 
 public class Main {
     public static void main(String[] args) {
-        Dotenv dotenv = Dotenv.load();
-        String botToken = dotenv.get("BOT_TOKEN");
+        Dotenv dotenv = Dotenv.configure()
+                .ignoreIfMissing()
+                .systemProperties()
+                .load();
+
+        String botToken = dotenv.get("BOT_TOKEN", System.getenv("BOT_TOKEN"));
 
         if (botToken == null || botToken.isBlank()) {
             throw new IllegalStateException("BOT_TOKEN environment variable is not set.");
