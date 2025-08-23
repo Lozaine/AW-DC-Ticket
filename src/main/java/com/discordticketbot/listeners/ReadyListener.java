@@ -23,44 +23,41 @@ public class ReadyListener extends ListenerAdapter {
     public void onReady(ReadyEvent event) {
         this.jda = event.getJDA();
 
-        System.out.println("🤖 Bot is ready! Registering slash commands...");
+        System.out.println("🤖 Bot is ready! Logged in as: " + event.getJDA().getSelfUser().getName());
+        System.out.println("📊 Connected to " + event.getGuildTotalCount() + " servers");
 
-        // Register commands globally so they appear in bot's profile
-        jda.updateCommands().addCommands(CommandBuilder.buildCommands()).queue(
-                success -> {
-                    System.out.println("✅ Global slash commands registered successfully!");
-                    System.out.println("📋 Commands will appear in bot profile with {/} buttons");
-                    System.out.println("⏰ Note: Global commands may take up to 1 hour to sync across all servers");
+        // ONLY register commands globally - this makes them appear in bot profile
+        // Clear any existing commands first to prevent conflicts
+        System.out.println("🧹 Clearing any existing global commands...");
+        event.getJDA().updateCommands().queue(
+                cleared -> {
+                    System.out.println("✅ Cleared existing commands, registering new ones...");
+
+                    // Now register our commands globally
+                    event.getJDA().updateCommands().addCommands(CommandBuilder.buildCommands()).queue(
+                            success -> {
+                                System.out.println("✅ Successfully registered " + success.size() + " global slash commands");
+                                System.out.println("📋 Commands registered:");
+                                success.forEach(cmd -> System.out.println("   🔸 /" + cmd.getName() + " - " + cmd.getDescription()));
+                                System.out.println("\n🎯 Commands will appear in bot profile within 1-60 minutes");
+                                System.out.println("💡 You can test them immediately by typing / in Discord");
+                            },
+                            error -> {
+                                System.err.println("❌ Failed to register global commands: " + error.getMessage());
+                                error.printStackTrace();
+                            }
+                    );
                 },
                 error -> {
-                    System.err.println("❌ Failed to register global commands: " + error.getMessage());
+                    System.err.println("❌ Failed to clear existing commands: " + error.getMessage());
                     error.printStackTrace();
-
-                    // Fallback to guild-specific registration
-                    System.out.println("🔄 Falling back to guild-specific command registration...");
-                    for (Guild guild : jda.getGuilds()) {
-                        registerCommandsForGuild(guild);
-                    }
                 }
         );
     }
 
     @Override
     public void onGuildJoin(GuildJoinEvent event) {
-        System.out.println("🆕 Joined new guild: " + event.getGuild().getName());
-        // Global commands will automatically be available in new guilds
-        // But we can also register guild-specific for immediate availability
-        registerCommandsForGuild(event.getGuild());
-    }
-
-    /**
-     * Register commands for a specific guild (faster than global, but doesn't show in profile)
-     * Use this as fallback or for immediate testing
-     */
-    private void registerCommandsForGuild(Guild guild) {
-        guild.updateCommands().addCommands(CommandBuilder.buildCommands()).queue(
-                success -> System.out.println("✅ Guild commands registered for: " + guild.getName()),
-                error -> System.err.println("❌ Failed to register commands in " + guild.getName() + ": " + error.getMessage())
-        );
+        // No guild-specific registration needed - global commands work everywhere
+        System.out.println("🆕 Joined guild: " + event.getGuild().getName() + " (Global commands available)");
     }
 }
