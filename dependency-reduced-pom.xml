@@ -3,9 +3,9 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>com.discordticketbot</groupId>
   <artifactId>AWDCTicket</artifactId>
-  <version>1.0.0</version>
+  <version>1.1.0</version>
   <build>
-    <finalName>AWDCTicket-1.0.0</finalName>
+    <finalName>AWDCTicket-1.1.0</finalName>
     <plugins>
       <plugin>
         <artifactId>maven-compiler-plugin</artifactId>

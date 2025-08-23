@@ -1,5 +1,6 @@
 package com.discordticketbot.handlers;
 
+import com.discordticketbot.bot.TicketBot;
 import com.discordticketbot.config.GuildConfig;
 import com.discordticketbot.utils.PermissionUtil;
 import com.discordticketbot.utils.RoleParser;
@@ -100,7 +101,7 @@ public class SetupHandler {
             return;
         }
 
-        // Save config
+        // Create or get existing config
         GuildConfig config = guildConfigs.getOrDefault(guild.getId(), new GuildConfig());
         config.categoryId = categoryId;
         config.panelChannelId = panelChannelId;
@@ -111,7 +112,10 @@ public class SetupHandler {
         // Initialize ticket counter based on existing tickets
         initializeTicketCounter(guild, config);
 
+        // Save to both memory and database
+        config.setGuildId(guild.getId());
         guildConfigs.put(guild.getId(), config);
+        config.save(); // This saves to database
 
         // Confirmation embed
         StringBuilder supportRolesMention = new StringBuilder();
@@ -119,7 +123,7 @@ public class SetupHandler {
 
         EmbedBuilder embed = new EmbedBuilder()
                 .setTitle("✅ Ticket System Configured!")
-                .setDescription("Your ticket system has been successfully configured with Administrator permissions!")
+                .setDescription("Your ticket system has been successfully configured with Administrator permissions!\n\n**Configuration saved to database** ✅")
                 .addField("📁 Ticket Category", category.getAsMention(), true)
                 .addField("📋 Panel Channel", panelChannel.getAsMention(), true)
                 .addField("👥 Support Roles", supportRolesMention.toString().trim(), false)
