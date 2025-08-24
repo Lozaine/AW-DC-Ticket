@@ -1,4 +1,3 @@
-
 package com.discordticketbot.utils;
 
 import com.discordticketbot.config.GuildConfig;
@@ -7,6 +6,8 @@ import net.dv8tion.jda.api.entities.Guild;
 import net.dv8tion.jda.api.entities.channel.concrete.TextChannel;
 
 import java.awt.*;
+import java.io.PrintWriter;
+import java.io.StringWriter;
 import java.time.Instant;
 import java.util.Map;
 
@@ -43,11 +44,11 @@ public class ErrorLogger {
                     .setFooter("Error Logger", guild.getJDA().getSelfUser().getAvatarUrl());
 
             if (exception != null) {
-                String stackTrace = getStackTraceString(exception);
+                String stackTrace = getStackTrace(exception);
                 if (stackTrace.length() > 1024) {
                     stackTrace = stackTrace.substring(0, 1021) + "...";
                 }
-                embed.addField("Stack Trace", "```java\n" + stackTrace + "```", false);
+                embed.addField("📄 Stack Trace", "```\n" + stackTrace + "\n```", false);
             }
 
             errorChannel.sendMessageEmbeds(embed.build()).queue(
@@ -98,9 +99,9 @@ public class ErrorLogger {
         }
     }
 
-    private String getStackTraceString(Exception exception) {
-        java.io.StringWriter sw = new java.io.StringWriter();
-        java.io.PrintWriter pw = new java.io.PrintWriter(sw);
+    private String getStackTrace(Exception exception) {
+        StringWriter sw = new StringWriter();
+        PrintWriter pw = new PrintWriter(sw);
         exception.printStackTrace(pw);
         return sw.toString();
     }
