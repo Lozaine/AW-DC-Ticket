@@ -1,10 +1,11 @@
-
 package com.discordticketbot.handlers;
 
 import com.discordticketbot.config.GuildConfig;
 import com.discordticketbot.database.CloseRequestDAO;
 import com.discordticketbot.database.TicketLogDAO;
+import com.discordticketbot.handlers.TicketHandler;
 import com.discordticketbot.utils.PermissionUtil;
+import com.discordticketbot.utils.ErrorLogger;
 import net.dv8tion.jda.api.EmbedBuilder;
 import net.dv8tion.jda.api.entities.User;
 import net.dv8tion.jda.api.entities.channel.concrete.TextChannel;
@@ -21,11 +22,13 @@ public class CloseRequestHandler {
     private final Map<String, GuildConfig> guildConfigs;
     private final CloseRequestDAO closeRequestDAO;
     private final TicketLogDAO ticketLogDAO;
+    private final ErrorLogger errorLogger;
 
     public CloseRequestHandler(Map<String, GuildConfig> guildConfigs) {
         this.guildConfigs = guildConfigs;
         this.closeRequestDAO = new CloseRequestDAO();
         this.ticketLogDAO = new TicketLogDAO();
+        this.errorLogger = new ErrorLogger(guildConfigs);
     }
 
     public void handleCloseRequest(SlashCommandInteractionEvent event) {
@@ -63,53 +66,59 @@ public class CloseRequestHandler {
             timeoutHours = null;
         }
 
-        // Log close request to database
-        closeRequestDAO.createCloseRequest(
-                channel.getId(),
-                event.getUser().getId(),
-                userId,
-                reason,
-                timeoutHours
-        );
+        try {
+            // Log close request to database
+            closeRequestDAO.createCloseRequest(
+                    channel.getId(),
+                    event.getUser().getId(),
+                    userId,
+                    reason,
+                    timeoutHours
+            );
 
-        User ticketOwner = event.getJDA().getUserById(userId);
-        String ownerMention = ticketOwner != null ? ticketOwner.getAsMention() : "<@" + userId + ">";
+            User ticketOwner = event.getJDA().getUserById(userId);
+            String ownerMention = ticketOwner != null ? ticketOwner.getAsMention() : "<@" + userId + ">";
 
-        EmbedBuilder embed = new EmbedBuilder()
-                .setTitle("🔒 Close Request")
-                .setDescription("**" + event.getUser().getAsMention() + "** has requested to close this ticket.\n\n" +
-                        "**Reason:** " + reason + "\n" +
-                        (timeoutHours != null ? "**Auto-close timeout:** " + timeoutHours + " hours\n\n" : "\n") +
-                        ownerMention + ", please confirm if your issue has been resolved:")
-                .setColor(Color.ORANGE)
-                .setFooter("Close request • " + event.getUser().getAsTag());
+            EmbedBuilder embed = new EmbedBuilder()
+                    .setTitle("🔒 Close Request")
+                    .setDescription("**" + event.getUser().getAsMention() + "** has requested to close this ticket.\n\n" +
+                            "**Reason:** " + reason + "\n" +
+                            (timeoutHours != null ? "**Auto-close timeout:** " + timeoutHours + " hours\n\n" : "\n") +
+                            ownerMention + ", please confirm if your issue has been resolved:")
+                    .setColor(Color.ORANGE)
+                    .setFooter("Close request • " + event.getUser().getAsTag());
 
-        if (timeoutHours != null) {
-            embed.addField("⏰ Automatic Closure",
-                    "This ticket will be automatically closed in **" + timeoutHours + " hours** if no response is received.",
-                    false);
+            if (timeoutHours != null) {
+                embed.addField("⏰ Automatic Closure",
+                        "This ticket will be automatically closed in **" + timeoutHours + " hours** if no response is received.",
+                        false);
+            }
+
+            event.reply("✅ Close request sent to the ticket owner.")
+                    .setEphemeral(true).queue();
+
+            Integer finalTimeoutHours = timeoutHours;
+            channel.sendMessageEmbeds(embed.build())
+                    .addActionRow(
+                            Button.success("confirm_close_request", "✅ Confirm Close"),
+                            Button.danger("deny_close_request", "❌ Keep Open")
+                    ).queue(message -> {
+                        // Update database with message ID for future reference
+                        closeRequestDAO.updateCloseRequestMessageId(channel.getId(), message.getId());
+
+                        // Schedule timeout if specified
+                        if (finalTimeoutHours != null) {
+                            scheduleAutoClose(channel, message.getId(), finalTimeoutHours);
+                        }
+                    });
+
+            // Log to ticket logs
+            ticketLogDAO.logCloseRequest(channel.getId(), event.getUser().getId(), reason, timeoutHours);
+        } catch (Exception e) {
+            errorLogger.logError(event.getGuild(), "Close Request",
+                    "Failed to send close request for " + channel.getName() + ": " + e.getMessage(), e);
+            event.reply("❌ Failed to send close request.").setEphemeral(true).queue();
         }
-
-        event.reply("✅ Close request sent to the ticket owner.")
-                .setEphemeral(true).queue();
-
-        Integer finalTimeoutHours = timeoutHours;
-        channel.sendMessageEmbeds(embed.build())
-                .addActionRow(
-                        Button.success("confirm_close_request", "✅ Confirm Close"),
-                        Button.danger("deny_close_request", "❌ Keep Open")
-                ).queue(message -> {
-                    // Update database with message ID for future reference
-                    closeRequestDAO.updateCloseRequestMessageId(channel.getId(), message.getId());
-
-                    // Schedule timeout if specified
-                    if (finalTimeoutHours != null) {
-                        scheduleAutoClose(channel, message.getId(), finalTimeoutHours);
-                    }
-                });
-
-        // Log to ticket logs
-        ticketLogDAO.logCloseRequest(channel.getId(), event.getUser().getId(), reason, timeoutHours);
     }
 
     public void handleConfirmCloseRequest(ButtonInteractionEvent event) {
@@ -121,37 +130,43 @@ public class CloseRequestHandler {
             return;
         }
 
-        // Get original close request details
-        CloseRequestDAO.CloseRequestDetails details = closeRequestDAO.getCloseRequestDetails(channel.getId());
+        try {
+            // Get original close request details
+            CloseRequestDAO.CloseRequestDetails details = closeRequestDAO.getCloseRequestDetails(channel.getId());
 
-        // Mark close request as confirmed
-        closeRequestDAO.confirmCloseRequest(channel.getId(), event.getUser().getId());
+            // Mark close request as confirmed
+            closeRequestDAO.confirmCloseRequest(channel.getId(), event.getUser().getId());
 
-        StringBuilder description = new StringBuilder();
-        description.append(event.getUser().getAsMention()).append(" has confirmed that their issue is resolved.\n\n");
-        description.append("**Response:** Confirmed at <t:").append(System.currentTimeMillis() / 1000L).append(":F>\n\n");
+            StringBuilder description = new StringBuilder();
+            description.append(event.getUser().getAsMention()).append(" has confirmed that their issue is resolved.\n\n");
+            description.append("**Response:** Confirmed at <t:").append(System.currentTimeMillis() / 1000L).append(":F>\n\n");
 
-        if (details != null) {
-            description.append("**Original Close Request:**\n");
-            description.append("**Requested by:** <@").append(details.requestedBy).append(">\n");
-            description.append("**Reason:** ").append(details.reason).append("\n");
-            if (details.timeoutHours != null) {
-                description.append("**Timeout:** ").append(details.timeoutHours).append(" hours\n");
+            if (details != null) {
+                description.append("**Original Close Request:**\n");
+                description.append("**Requested by:** <@").append(details.requestedBy).append(">\n");
+                description.append("**Reason:** ").append(details.reason).append("\n");
+                if (details.timeoutHours != null) {
+                    description.append("**Timeout:** ").append(details.timeoutHours).append(" hours\n");
+                }
             }
+
+            EmbedBuilder embed = new EmbedBuilder()
+                    .setTitle("✅ Close Request Confirmed")
+                    .setDescription(description.toString())
+                    .setColor(Color.GREEN)
+                    .setFooter("Close request confirmed");
+
+            event.editMessageEmbeds(embed.build())
+                    .setComponents().queue();
+
+            // Proceed with closing the ticket
+            TicketHandler ticketHandler = new TicketHandler(guildConfigs);
+            ticketHandler.showCloseOptions(event);
+        } catch (Exception e) {
+            errorLogger.logError(event.getGuild(), "Confirm Close Request",
+                    "Error confirming close request in " + channel.getName() + ": " + e.getMessage(), e);
+            event.reply("❌ An error occurred while confirming the close request.").setEphemeral(true).queue();
         }
-
-        EmbedBuilder embed = new EmbedBuilder()
-                .setTitle("✅ Close Request Confirmed")
-                .setDescription(description.toString())
-                .setColor(Color.GREEN)
-                .setFooter("Close request confirmed");
-
-        event.editMessageEmbeds(embed.build())
-                .setComponents().queue();
-
-        // Proceed with closing the ticket
-        TicketHandler ticketHandler = new TicketHandler(guildConfigs);
-        ticketHandler.showCloseOptions(event);
     }
 
     public void handleDenyCloseRequest(ButtonInteractionEvent event) {
@@ -163,39 +178,45 @@ public class CloseRequestHandler {
             return;
         }
 
-        // Get original close request details
-        CloseRequestDAO.CloseRequestDetails details = closeRequestDAO.getCloseRequestDetails(channel.getId());
+        try {
+            // Get original close request details
+            CloseRequestDAO.CloseRequestDetails details = closeRequestDAO.getCloseRequestDetails(channel.getId());
 
-        // Mark close request as denied
-        closeRequestDAO.denyCloseRequest(channel.getId(), event.getUser().getId());
+            // Mark close request as denied
+            closeRequestDAO.denyCloseRequest(channel.getId(), event.getUser().getId());
 
-        StringBuilder description = new StringBuilder();
-        description.append(event.getUser().getAsMention()).append(" has indicated that their issue is **not yet resolved**.\n\n");
-        description.append("**Response:** Denied at <t:").append(System.currentTimeMillis() / 1000L).append(":F>\n\n");
+            StringBuilder description = new StringBuilder();
+            description.append(event.getUser().getAsMention()).append(" has indicated that their issue is **not yet resolved**.\n\n");
+            description.append("**Response:** Denied at <t:").append(System.currentTimeMillis() / 1000L).append(":F>\n\n");
 
-        if (details != null) {
-            description.append("**Original Close Request:**\n");
-            description.append("**Requested by:** <@").append(details.requestedBy).append(">\n");
-            description.append("**Reason:** ").append(details.reason).append("\n");
-            if (details.timeoutHours != null) {
-                description.append("**Timeout:** ").append(details.timeoutHours).append(" hours\n");
+            if (details != null) {
+                description.append("**Original Close Request:**\n");
+                description.append("**Requested by:** <@").append(details.requestedBy).append(">\n");
+                description.append("**Reason:** ").append(details.reason).append("\n");
+                if (details.timeoutHours != null) {
+                    description.append("**Timeout:** ").append(details.timeoutHours).append(" hours\n");
+                }
+                description.append("\n");
             }
-            description.append("\n");
+
+            description.append("The ticket will remain open for further assistance.");
+
+            EmbedBuilder embed = new EmbedBuilder()
+                    .setTitle("❌ Close Request Denied")
+                    .setDescription(description.toString())
+                    .setColor(Color.RED)
+                    .setFooter("Close request denied");
+
+            event.editMessageEmbeds(embed.build())
+                    .setComponents().queue();
+
+            // Log denial
+            ticketLogDAO.logCloseRequestDenied(channel.getId(), event.getUser().getId());
+        } catch (Exception e) {
+            errorLogger.logError(event.getGuild(), "Deny Close Request",
+                    "Error denying close request in " + channel.getName() + ": " + e.getMessage(), e);
+            event.reply("❌ An error occurred while denying the close request.").setEphemeral(true).queue();
         }
-
-        description.append("The ticket will remain open for further assistance.");
-
-        EmbedBuilder embed = new EmbedBuilder()
-                .setTitle("❌ Close Request Denied")
-                .setDescription(description.toString())
-                .setColor(Color.RED)
-                .setFooter("Close request denied");
-
-        event.editMessageEmbeds(embed.build())
-                .setComponents().queue();
-
-        // Log denial
-        ticketLogDAO.logCloseRequestDenied(channel.getId(), event.getUser().getId());
     }
 
     private void scheduleAutoClose(TextChannel channel, String messageId, int timeoutHours) {
@@ -210,26 +231,30 @@ public class CloseRequestHandler {
                 return; // Request was already handled
             }
 
-            // Auto-close the ticket
-            closeRequestDAO.autoCloseRequest(channelId);
+            try {
+                // Auto-close the ticket
+                closeRequestDAO.autoCloseRequest(channelId);
 
-            EmbedBuilder timeoutEmbed = new EmbedBuilder()
-                    .setTitle("⏰ Auto-Close Timeout")
-                    .setDescription("This ticket has been automatically closed due to no response within " + finalTimeoutHours + " hours.\n\n" +
-                            "**Auto-closed at:** <t:" + (System.currentTimeMillis() / 1000L) + ":F>")
-                    .setColor(Color.GRAY)
-                    .setFooter("Ticket auto-closed due to timeout");
+                EmbedBuilder timeoutEmbed = new EmbedBuilder()
+                        .setTitle("⏰ Auto-Close Timeout")
+                        .setDescription("This ticket has been automatically closed due to no response within " + finalTimeoutHours + " hours.\n\n" +
+                                "**Auto-closed at:** <t:" + (System.currentTimeMillis() / 1000L) + ":F>")
+                        .setColor(Color.GRAY)
+                        .setFooter("Ticket auto-closed due to timeout");
 
-            channel.sendMessageEmbeds(timeoutEmbed.build()).queue();
+                channel.sendMessageEmbeds(timeoutEmbed.build()).queue();
 
-            // Log auto-closure
-            ticketLogDAO.logTicketAutoClosed(channelId, finalTimeoutHours);
+                // Log auto-closure
+                ticketLogDAO.logTicketAutoClosed(channelId, finalTimeoutHours);
 
-            // Close the ticket after a brief delay
-            TicketHandler ticketHandler = new TicketHandler(guildConfigs);
-            // Create a mock button event for closing
-            channel.delete().queueAfter(30, TimeUnit.SECONDS);
-
+                // Close the ticket after a brief delay
+                TicketHandler ticketHandler = new TicketHandler(guildConfigs);
+                // Create a mock button event for closing
+                channel.delete().queueAfter(30, TimeUnit.SECONDS);
+            } catch (Exception e) {
+                errorLogger.logError(channel.getGuild(), "Auto Close Ticket",
+                        "Error during auto-closing ticket " + channel.getName() + ": " + e.getMessage(), e);
+            }
         }, finalTimeoutHours, TimeUnit.HOURS);
     }
 
@@ -246,17 +271,23 @@ public class CloseRequestHandler {
             return;
         }
 
-        closeRequestDAO.excludeFromAutoClose(channel.getId(), event.getUser().getId());
+        try {
+            closeRequestDAO.excludeFromAutoClose(channel.getId(), event.getUser().getId());
 
-        EmbedBuilder embed = new EmbedBuilder()
-                .setTitle("🔒 Auto-Close Exclusion")
-                .setDescription("This ticket has been **excluded from automatic closure**.\n\n" +
-                        "Close request timeouts will not apply to this ticket.\n" +
-                        "**Excluded by:** " + event.getUser().getAsMention())
-                .setColor(Color.BLUE)
-                .setFooter("Auto-close exclusion active");
+            EmbedBuilder embed = new EmbedBuilder()
+                    .setTitle("🔒 Auto-Close Exclusion")
+                    .setDescription("This ticket has been **excluded from automatic closure**.\n\n" +
+                            "Close request timeouts will not apply to this ticket.\n" +
+                            "**Excluded by:** " + event.getUser().getAsMention())
+                    .setColor(Color.BLUE)
+                    .setFooter("Auto-close exclusion active");
 
-        event.reply("✅ This ticket has been excluded from auto-close timeouts.").setEphemeral(true).queue();
-        channel.sendMessageEmbeds(embed.build()).queue();
+            event.reply("✅ This ticket has been excluded from auto-close timeouts.").setEphemeral(true).queue();
+            channel.sendMessageEmbeds(embed.build()).queue();
+        } catch (Exception e) {
+            errorLogger.logError(event.getGuild(), "Exclude Auto Close",
+                    "Error excluding ticket " + channel.getName() + " from auto-close: " + e.getMessage(), e);
+            event.reply("❌ An error occurred while excluding this ticket from auto-close.").setEphemeral(true).queue();
+        }
     }
 }

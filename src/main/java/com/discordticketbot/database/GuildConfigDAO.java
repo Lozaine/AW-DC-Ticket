@@ -19,14 +19,16 @@ public class GuildConfigDAO {
      * Save or update guild configuration
      */
     public void saveGuildConfig(String guildId, GuildConfig config) {
+        // The SQL query for inserting or updating guild configurations, now including the error log channel ID.
         String upsertQuery = """
-            INSERT INTO guild_configs (guild_id, category_id, panel_channel_id, transcript_channel_id, ticket_counter, updated_at)
-            VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+            INSERT INTO guild_configs (guild_id, category_id, panel_channel_id, transcript_channel_id, error_log_channel_id, ticket_counter, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
             ON CONFLICT (guild_id) 
             DO UPDATE SET 
                 category_id = EXCLUDED.category_id,
                 panel_channel_id = EXCLUDED.panel_channel_id,
                 transcript_channel_id = EXCLUDED.transcript_channel_id,
+                error_log_channel_id = EXCLUDED.error_log_channel_id,
                 ticket_counter = EXCLUDED.ticket_counter,
                 updated_at = CURRENT_TIMESTAMP
             """;
@@ -38,7 +40,8 @@ public class GuildConfigDAO {
             stmt.setString(2, config.categoryId);
             stmt.setString(3, config.panelChannelId);
             stmt.setString(4, config.transcriptChannelId);
-            stmt.setInt(5, config.ticketCounter);
+            stmt.setString(5, config.errorLogChannelId); // Set the error log channel ID
+            stmt.setInt(6, config.ticketCounter);
 
             stmt.executeUpdate();
 
@@ -57,8 +60,9 @@ public class GuildConfigDAO {
      * Load guild configuration from database
      */
     public GuildConfig loadGuildConfig(String guildId) {
+        // The SQL query to load guild configurations, now includes the error log channel ID.
         String query = """
-            SELECT category_id, panel_channel_id, transcript_channel_id, ticket_counter
+            SELECT category_id, panel_channel_id, transcript_channel_id, error_log_channel_id, ticket_counter
             FROM guild_configs 
             WHERE guild_id = ?
             """;
@@ -74,6 +78,7 @@ public class GuildConfigDAO {
                 config.categoryId = rs.getString("category_id");
                 config.panelChannelId = rs.getString("panel_channel_id");
                 config.transcriptChannelId = rs.getString("transcript_channel_id");
+                config.errorLogChannelId = rs.getString("error_log_channel_id"); // Load the error log channel ID
                 config.ticketCounter = rs.getInt("ticket_counter");
 
                 // Load support roles
@@ -95,8 +100,9 @@ public class GuildConfigDAO {
      */
     public Map<String, GuildConfig> loadAllGuildConfigs() {
         Map<String, GuildConfig> configs = new HashMap<>();
+        // The SQL query to load all guild configurations, now includes the error log channel ID.
         String query = """
-            SELECT guild_id, category_id, panel_channel_id, transcript_channel_id, ticket_counter
+            SELECT guild_id, category_id, panel_channel_id, transcript_channel_id, error_log_channel_id, ticket_counter
             FROM guild_configs
             """;
 
@@ -111,6 +117,7 @@ public class GuildConfigDAO {
                 config.categoryId = rs.getString("category_id");
                 config.panelChannelId = rs.getString("panel_channel_id");
                 config.transcriptChannelId = rs.getString("transcript_channel_id");
+                config.errorLogChannelId = rs.getString("error_log_channel_id"); // Load the error log channel ID for each guild
                 config.ticketCounter = rs.getInt("ticket_counter");
 
                 // Load support roles for this guild

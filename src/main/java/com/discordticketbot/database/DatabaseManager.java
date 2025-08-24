@@ -100,9 +100,10 @@ public class DatabaseManager {
         String createGuildConfigTable = """
             CREATE TABLE IF NOT EXISTS guild_configs (
                 guild_id VARCHAR(20) PRIMARY KEY,
-                category_id VARCHAR(20),
-                panel_channel_id VARCHAR(20),
-                transcript_channel_id VARCHAR(20),
+                category_id TEXT,
+                panel_channel_id TEXT,
+                transcript_channel_id TEXT,
+                error_log_channel_id TEXT,
                 ticket_counter INTEGER DEFAULT 0,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP

@@ -2,14 +2,17 @@ package com.discordticketbot.config;
 
 import com.discordticketbot.database.GuildConfigDAO;
 
+import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 
 public class GuildConfig {
     public String categoryId;
-    public Set<String> supportRoleIds = new HashSet<>();
-    public String transcriptChannelId;
     public String panelChannelId;
+    public String transcriptChannelId;
+    public String errorLogChannelId; // Optional error logging channel
+    public Set<String> supportRoleIds = new HashSet<>();
     public int ticketCounter = 0; // Global ticket counter that persists
 
     // Reference to DAO for database operations

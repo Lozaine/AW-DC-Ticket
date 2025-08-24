@@ -12,6 +12,7 @@ import net.dv8tion.jda.api.entities.Role;
 import net.dv8tion.jda.api.entities.channel.concrete.Category;
 import net.dv8tion.jda.api.entities.channel.concrete.TextChannel;
 import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEvent;
+import net.dv8tion.jda.api.interactions.commands.OptionType;
 
 import java.awt.*;
 import java.util.List;
@@ -64,7 +65,18 @@ public class SetupHandler {
 
         String categoryId = event.getOption("category").getAsChannel().getId();
         String panelChannelId = event.getOption("panel_channel").getAsChannel().getId();
-        String transcriptChannelId = event.getOption("transcript_channel").getAsChannel().getId();
+        TextChannel transcriptChannel = (TextChannel) event.getOption("transcript_channel").getAsChannel();
+
+        // Optional error log channel
+        TextChannel errorLogChannel = null;
+        if (event.getOption("error_log_channel") != null) {
+            var errorChannel = event.getOption("error_log_channel").getAsChannel();
+            if (!(errorChannel instanceof TextChannel)) {
+                event.reply("❌ Error log channel must be a text channel.").setEphemeral(true).queue();
+                return;
+            }
+            errorLogChannel = (TextChannel) errorChannel;
+        }
 
         // Parse multiple roles from the STRING option
         String supportRaw = event.getOption("support_roles").getAsString();
@@ -84,14 +96,14 @@ public class SetupHandler {
             event.reply("❌ Please select a **Text Channel** for `panel_channel`.").setEphemeral(true).queue();
             return;
         }
-        if (!(event.getOption("transcript_channel").getAsChannel() instanceof TextChannel)) {
-            event.reply("❌ Please select a **Text Channel** for `transcript_channel`.").setEphemeral(true).queue();
+        if (!(transcriptChannel instanceof TextChannel)) {
+            event.reply("❌ Transcript channel must be a text channel.").setEphemeral(true).queue();
             return;
         }
 
         Category category = (Category) event.getOption("category").getAsChannel();
         TextChannel panelChannel = (TextChannel) event.getOption("panel_channel").getAsChannel();
-        TextChannel transcriptChannel = (TextChannel) event.getOption("transcript_channel").getAsChannel();
+
 
         // Safer parent check
         Category parent = panelChannel.getParentCategory();
@@ -105,7 +117,10 @@ public class SetupHandler {
         GuildConfig config = guildConfigs.getOrDefault(guild.getId(), new GuildConfig());
         config.categoryId = categoryId;
         config.panelChannelId = panelChannelId;
-        config.transcriptChannelId = transcriptChannelId;
+        config.transcriptChannelId = transcriptChannel.getId();
+        config.errorLogChannelId = errorLogChannel != null ? errorLogChannel.getId() : null;
+
+        // Clear existing support roles
         config.supportRoleIds.clear();
         for (Role role : supportRoles) config.supportRoleIds.add(role.getId());
 
@@ -120,14 +135,17 @@ public class SetupHandler {
         // Confirmation embed
         StringBuilder supportRolesMention = new StringBuilder();
         for (Role role : supportRoles) supportRolesMention.append(role.getAsMention()).append(" ");
+        String supportRolesList = supportRolesMention.toString().trim();
 
         EmbedBuilder embed = new EmbedBuilder()
                 .setTitle("✅ Ticket System Configured!")
                 .setDescription("Your ticket system has been successfully configured with Administrator permissions!\n\n**Configuration saved to database** ✅")
                 .addField("📁 Ticket Category", category.getAsMention(), true)
                 .addField("📋 Panel Channel", panelChannel.getAsMention(), true)
-                .addField("👥 Support Roles", supportRolesMention.toString().trim(), false)
                 .addField("📜 Transcript Channel", transcriptChannel.getAsMention(), true)
+                .addField("🚨 Error Log Channel",
+                        errorLogChannel != null ? errorLogChannel.getAsMention() : "Not configured", true)
+                .addField("👥 Support Roles", supportRolesList, false)
                 .addField("🔢 Ticket Counter", "Initialized at: " + config.ticketCounter + " (next: " + (config.ticketCounter + 1) + ")", true)
                 .addField("🎯 Next Step", "Use `/panel` to send the ticket panel to the configured channel!", false)
                 .setColor(Color.GREEN)

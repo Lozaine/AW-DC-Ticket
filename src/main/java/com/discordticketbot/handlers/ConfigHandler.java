@@ -57,6 +57,9 @@ public class ConfigHandler {
                 .addField("📜 Transcript Channel",
                         guild.getTextChannelById(config.transcriptChannelId) != null ?
                                 guild.getTextChannelById(config.transcriptChannelId).getAsMention() : "❌ Not Found", true)
+                .addField("🚨 Error Log Channel",
+                        config.errorLogChannelId != null && guild.getTextChannelById(config.errorLogChannelId) != null ?
+                                guild.getTextChannelById(config.errorLogChannelId).getAsMention() : "Not configured", true)
                 .addField("📊 Available Commands",
                         "• `/setup` - Configure ticket system\n" +
                                 "• `/panel` - Send ticket creation panel\n" +
