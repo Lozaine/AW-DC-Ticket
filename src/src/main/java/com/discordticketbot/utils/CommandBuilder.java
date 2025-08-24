@@ -5,7 +5,6 @@ import net.dv8tion.jda.api.interactions.commands.OptionType;
 import net.dv8tion.jda.api.interactions.commands.build.CommandData;
 import net.dv8tion.jda.api.interactions.commands.build.Commands;
 import net.dv8tion.jda.api.interactions.commands.build.OptionData;
-import net.dv8tion.jda.api.interactions.commands.build.SubcommandData;
 
 import java.util.List;
 
@@ -60,7 +59,8 @@ public class CommandBuilder {
                 // Auto-close exclude command - exclude ticket from auto-close timeouts
                 Commands.slash("autoclose", "⏰ Manage auto-close settings for this ticket (Staff only)")
                         .addSubcommands(
-                                new SubcommandData("exclude", "Exclude a ticket from automatic closure")
+                                net.dv8tion.jda.api.interactions.commands.build.SubcommandData
+                                        .create("exclude", "🔒 Exclude this ticket from auto-close timeouts")
                         )
         );
     }
