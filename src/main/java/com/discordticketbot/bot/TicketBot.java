@@ -8,11 +8,13 @@ import com.discordticketbot.listeners.ButtonListener;
 import com.discordticketbot.listeners.MessageListener;
 import com.discordticketbot.listeners.ReadyListener;
 import com.discordticketbot.utils.BotInviteUtil;
+import com.discordticketbot.utils.CommandDiagnosticUtil;
 import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.JDABuilder;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 
 public class TicketBot {
     private final String botToken;
@@ -52,6 +54,13 @@ public class TicketBot {
 
         // Print invite URLs with proper scopes for slash commands
         BotInviteUtil.printInviteUrls(jda);
+
+        // Print optimized invite URL for command visibility
+        CommandDiagnosticUtil.printOptimizedInviteUrl(jda);
+
+        // Test command availability after a short delay
+        Thread.sleep(5000); // Wait 5 seconds
+        CommandDiagnosticUtil.printCommandDiagnostics(jda);
 
         // Add shutdown hook to properly close database connections
         Runtime.getRuntime().addShutdownHook(new Thread(this::shutdown));
