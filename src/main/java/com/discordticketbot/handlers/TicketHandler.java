@@ -129,7 +129,7 @@ public class TicketHandler {
                 });
     }
 
-    public void showCloseOptions(ButtonInteractionEvent event) {
+    public void requestCloseReason(ButtonInteractionEvent event) {
         TextChannel channel = event.getChannel().asTextChannel();
         User user = event.getUser();
 
@@ -142,12 +142,82 @@ public class TicketHandler {
             return;
         }
 
-        // 🆕 LOG TICKET CLOSURE TO DATABASE
-        ticketLogDAO.logTicketClosed(channel.getId(), user.getId());
+        // Show modal for close reason
+        event.replyModal(
+                net.dv8tion.jda.api.interactions.modals.Modal.create("close_reason_modal", "Close Ticket")
+                        .addActionRow(net.dv8tion.jda.api.interactions.components.text.TextInput.create("close_reason", "Reason for closing", net.dv8tion.jda.api.interactions.components.text.TextInputStyle.PARAGRAPH)
+                                .setPlaceholder("Please provide a reason for closing this ticket...")
+                                .setRequired(false)
+                                .setMaxLength(1000)
+                                .build())
+                        .build()
+        ).queue();
+    }
+
+    public void showCloseOptions(ButtonInteractionEvent event) {
+        showCloseOptionsWithReason(event, "No reason provided");
+    }
+
+    public void showCloseOptionsWithReason(ButtonInteractionEvent event, String closeReason) {
+        TextChannel channel = event.getChannel().asTextChannel();
+        User user = event.getUser();
+
+        GuildConfig config = guildConfigs.get(event.getGuild().getId());
+        if (config == null) return;
+
+        // 🆕 LOG TICKET CLOSURE TO DATABASE WITH REASON
+        ticketLogDAO.logTicketClosedWithReason(channel.getId(), user.getId(), closeReason);
 
         EmbedBuilder closeEmbed = new EmbedBuilder()
-                .setTitle("🔒 Close Ticket Confirmation")
-                .setDescription("**" + user.getAsMention() + "** wants to close this ticket.\n\nPlease choose an action:")
+                .setTitle("🔒 Ticket Closed")
+                .setDescription("**" + user.getAsMention() + "** has closed this ticket.\n\n" +
+                        "**Close Reason:** " + closeReason + "\n" +
+                        "**Closed at:** <t:" + (System.currentTimeMillis() / 1000L) + ":F>\n\n" +
+                        "Please choose an action:")
+                .addField("🔓 Re-open", "Re-open this ticket for further assistance", true)
+                .addField("📄 Transcript", "Generate and save transcript to logs", true)
+                .addField("🗑️ Delete", "Permanently delete this ticket", true)
+                .setColor(Color.YELLOW)
+                .setFooter("This ticket is now closed - choose an action above");
+
+        if (PermissionUtil.isTicketOwner(channel, user)) {
+            channel.getManager()
+                    .putMemberPermissionOverride(user.getIdLong(),
+                            EnumSet.of(Permission.VIEW_CHANNEL, Permission.MESSAGE_HISTORY),
+                            EnumSet.of(Permission.MESSAGE_SEND))
+                    .queue();
+        }
+
+        event.editMessage("✅ Ticket has been closed!")
+                .setEmbeds(closeEmbed.build())
+                .setActionRow(
+                        Button.success("reopen_ticket", "🔓 Re-open"),
+                        Button.primary("generate_transcript", "📄 Transcript"),
+                        Button.danger("delete_ticket", "🗑️ Delete")
+                ).queue();
+    }
+
+    public void handleCloseReasonModal(net.dv8tion.jda.api.events.interaction.ModalInteractionEvent event) {
+        String reason = event.getValue("close_reason").getAsString();
+        if (reason == null || reason.trim().isEmpty()) {
+            reason = "No reason provided";
+        }
+
+        TextChannel channel = event.getChannel().asTextChannel();
+        User user = event.getUser();
+
+        GuildConfig config = guildConfigs.get(event.getGuild().getId());
+        if (config == null) return;
+
+        // 🆕 LOG TICKET CLOSURE TO DATABASE WITH REASON
+        ticketLogDAO.logTicketClosedWithReason(channel.getId(), user.getId(), reason.trim());
+
+        EmbedBuilder closeEmbed = new EmbedBuilder()
+                .setTitle("🔒 Ticket Closed")
+                .setDescription("**" + user.getAsMention() + "** has closed this ticket.\n\n" +
+                        "**Close Reason:** " + reason.trim() + "\n" +
+                        "**Closed at:** <t:" + (System.currentTimeMillis() / 1000L) + ":F>\n\n" +
+                        "Please choose an action:")
                 .addField("🔓 Re-open", "Re-open this ticket for further assistance", true)
                 .addField("📄 Transcript", "Generate and save transcript to logs", true)
                 .addField("🗑️ Delete", "Permanently delete this ticket", true)

@@ -29,7 +29,7 @@ public class ButtonListener extends ListenerAdapter {
             case "create_report_ticket" -> ticketHandler.createTicket(event, "Report", "🚨", Color.RED);
             case "create_support_ticket" -> ticketHandler.createTicket(event, "Support", "💬", Color.BLUE);
             case "create_appeal_ticket" -> ticketHandler.createTicket(event, "Appeal", "⚖️", Color.ORANGE);
-            case "close_ticket" -> ticketHandler.showCloseOptions(event);
+            case "close_ticket" -> ticketHandler.requestCloseReason(event);
             case "reopen_ticket" -> ticketHandler.reopenTicket(event);
             case "generate_transcript" -> ticketHandler.generateAndSendTranscript(event);
             case "delete_ticket" -> ticketHandler.deleteTicket(event);

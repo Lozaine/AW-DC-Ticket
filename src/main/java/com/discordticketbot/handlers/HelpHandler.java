@@ -32,6 +32,10 @@ public class HelpHandler {
                                 "• Complex permission overrides\n" +
                                 "• Reliable transcript generation\n" +
                                 "• Cross-category operations", false)
+                .addField("🔒 `/closerequest <reason> [timeout]`",
+                        "Request the ticket owner to confirm closure with optional auto-close timeout (Staff only)", false)
+                .addField("🔒 Close Ticket Button",
+                        "Close ticket with optional reason - shows modal to enter close reason (Owner/Staff)", false)
                 .addField("🛡️ Security Note",
                         "Administrator permission ensures the ticket system works reliably.\n" +
                                 "The bot only uses these permissions for ticket operations.", false)

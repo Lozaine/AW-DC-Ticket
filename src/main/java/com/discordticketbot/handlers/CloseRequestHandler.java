@@ -1,3 +1,4 @@
+
 package com.discordticketbot.handlers;
 
 import com.discordticketbot.config.GuildConfig;
@@ -12,8 +13,8 @@ import net.dv8tion.jda.api.events.interaction.component.ButtonInteractionEvent;
 import net.dv8tion.jda.api.interactions.components.buttons.Button;
 
 import java.awt.*;
+import java.time.LocalDateTime;
 import java.util.Map;
-import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
 public class CloseRequestHandler {
@@ -120,13 +121,28 @@ public class CloseRequestHandler {
             return;
         }
 
+        // Get original close request details
+        CloseRequestDAO.CloseRequestDetails details = closeRequestDAO.getCloseRequestDetails(channel.getId());
+
         // Mark close request as confirmed
         closeRequestDAO.confirmCloseRequest(channel.getId(), event.getUser().getId());
 
+        StringBuilder description = new StringBuilder();
+        description.append(event.getUser().getAsMention()).append(" has confirmed that their issue is resolved.\n\n");
+        description.append("**Response:** Confirmed at <t:").append(System.currentTimeMillis() / 1000L).append(":F>\n\n");
+
+        if (details != null) {
+            description.append("**Original Close Request:**\n");
+            description.append("**Requested by:** <@").append(details.requestedBy).append(">\n");
+            description.append("**Reason:** ").append(details.reason).append("\n");
+            if (details.timeoutHours != null) {
+                description.append("**Timeout:** ").append(details.timeoutHours).append(" hours\n");
+            }
+        }
+
         EmbedBuilder embed = new EmbedBuilder()
                 .setTitle("✅ Close Request Confirmed")
-                .setDescription(event.getUser().getAsMention() + " has confirmed that their issue is resolved.\n\n" +
-                        "**Response:** Confirmed at <t:" + (System.currentTimeMillis() / 1000L) + ":F>")
+                .setDescription(description.toString())
                 .setColor(Color.GREEN)
                 .setFooter("Close request confirmed");
 
@@ -147,14 +163,31 @@ public class CloseRequestHandler {
             return;
         }
 
+        // Get original close request details
+        CloseRequestDAO.CloseRequestDetails details = closeRequestDAO.getCloseRequestDetails(channel.getId());
+
         // Mark close request as denied
         closeRequestDAO.denyCloseRequest(channel.getId(), event.getUser().getId());
 
+        StringBuilder description = new StringBuilder();
+        description.append(event.getUser().getAsMention()).append(" has indicated that their issue is **not yet resolved**.\n\n");
+        description.append("**Response:** Denied at <t:").append(System.currentTimeMillis() / 1000L).append(":F>\n\n");
+
+        if (details != null) {
+            description.append("**Original Close Request:**\n");
+            description.append("**Requested by:** <@").append(details.requestedBy).append(">\n");
+            description.append("**Reason:** ").append(details.reason).append("\n");
+            if (details.timeoutHours != null) {
+                description.append("**Timeout:** ").append(details.timeoutHours).append(" hours\n");
+            }
+            description.append("\n");
+        }
+
+        description.append("The ticket will remain open for further assistance.");
+
         EmbedBuilder embed = new EmbedBuilder()
                 .setTitle("❌ Close Request Denied")
-                .setDescription(event.getUser().getAsMention() + " has indicated that their issue is **not yet resolved**.\n\n" +
-                        "**Response:** Denied at <t:" + (System.currentTimeMillis() / 1000L) + ":F>\n\n" +
-                        "The ticket will remain open for further assistance.")
+                .setDescription(description.toString())
                 .setColor(Color.RED)
                 .setFooter("Close request denied");
 
@@ -166,17 +199,12 @@ public class CloseRequestHandler {
     }
 
     private void scheduleAutoClose(TextChannel channel, String messageId, int timeoutHours) {
-        // --- FIX START ---
-        // Create a final copy of the TextChannel to use inside the lambda.
-        // This resolves the "effectively final" compiler error.
-        final TextChannel finalChannel = channel;
+        // Create final copies for lambda usage
+        final String channelId = channel.getId();
         final int finalTimeoutHours = timeoutHours;
-        // --- FIX END ---
-
-        final String channelId = finalChannel.getId();
 
         // Schedule the auto-close task
-        Executors.newSingleThreadScheduledExecutor().schedule(() -> {
+        java.util.concurrent.Executors.newSingleThreadScheduledExecutor().schedule(() -> {
             // Check if request is still active
             if (!closeRequestDAO.hasActiveCloseRequest(channelId)) {
                 return; // Request was already handled
@@ -192,14 +220,16 @@ public class CloseRequestHandler {
                     .setColor(Color.GRAY)
                     .setFooter("Ticket auto-closed due to timeout");
 
-            // --- FIX START ---
-            // Use the finalChannel variable here.
-            finalChannel.sendMessageEmbeds(timeoutEmbed.build()).queue();
-            finalChannel.delete().queueAfter(30, TimeUnit.SECONDS);
-            // --- FIX END ---
+            channel.sendMessageEmbeds(timeoutEmbed.build()).queue();
 
             // Log auto-closure
             ticketLogDAO.logTicketAutoClosed(channelId, finalTimeoutHours);
+
+            // Close the ticket after a brief delay
+            TicketHandler ticketHandler = new TicketHandler(guildConfigs);
+            // Create a mock button event for closing
+            channel.delete().queueAfter(30, TimeUnit.SECONDS);
+
         }, finalTimeoutHours, TimeUnit.HOURS);
     }
 

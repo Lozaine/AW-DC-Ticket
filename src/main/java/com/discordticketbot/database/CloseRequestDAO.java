@@ -208,4 +208,46 @@ public class CloseRequestDAO {
             return false;
         }
     }
+
+    public CloseRequestDetails getCloseRequestDetails(String channelId) {
+        String query = """
+            SELECT requested_by, reason, timeout_hours 
+            FROM close_requests 
+            WHERE channel_id = ? AND status = 'pending'
+            ORDER BY created_at DESC 
+            LIMIT 1
+            """;
+
+        try (Connection conn = dbManager.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(query)) {
+
+            stmt.setString(1, channelId);
+            ResultSet rs = stmt.executeQuery();
+
+            if (rs.next()) {
+                return new CloseRequestDetails(
+                        rs.getString("requested_by"),
+                        rs.getString("reason"),
+                        rs.getInt("timeout_hours") == 0 ? null : rs.getInt("timeout_hours")
+                );
+            }
+
+        } catch (SQLException e) {
+            System.err.println("❌ Failed to get close request details: " + e.getMessage());
+        }
+
+        return null;
+    }
+
+    public static class CloseRequestDetails {
+        public final String requestedBy;
+        public final String reason;
+        public final Integer timeoutHours;
+
+        public CloseRequestDetails(String requestedBy, String reason, Integer timeoutHours) {
+            this.requestedBy = requestedBy;
+            this.reason = reason;
+            this.timeoutHours = timeoutHours;
+        }
+    }
 }

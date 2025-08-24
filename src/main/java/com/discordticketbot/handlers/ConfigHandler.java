@@ -57,6 +57,15 @@ public class ConfigHandler {
                 .addField("📜 Transcript Channel",
                         guild.getTextChannelById(config.transcriptChannelId) != null ?
                                 guild.getTextChannelById(config.transcriptChannelId).getAsMention() : "❌ Not Found", true)
+                .addField("📊 Available Commands",
+                        "• `/setup` - Configure ticket system\n" +
+                                "• `/panel` - Send ticket creation panel\n" +
+                                "• `/closerequest` - Request user confirmation to close\n" +
+                                "• `/autoclose exclude` - Exclude from auto-close\n" +
+                                "• `/stats` - View ticket statistics\n" +
+                                "• `/config` - View current settings\n" +
+                                "• `/help` - Show all commands\n" +
+                                "• `Close Ticket` button - Close with reason modal", false)
                 .setColor(Color.BLUE)
                 .setFooter("Use /setup to reconfigure if needed");
         event.replyEmbeds(embed.build()).setEphemeral(true).queue();

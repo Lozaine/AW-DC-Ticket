@@ -14,6 +14,22 @@ public class TicketLogDAO {
 
     public TicketLogDAO() {
         this.dbManager = DatabaseManager.getInstance();
+        updateDatabase();
+    }
+
+    private void updateDatabase() {
+        // Add close_reason column if it doesn't exist
+        String addCloseReasonColumn = """
+            ALTER TABLE ticket_logs 
+            ADD COLUMN IF NOT EXISTS close_reason TEXT
+            """;
+
+        try (Connection conn = dbManager.getConnection()) {
+            conn.prepareStatement(addCloseReasonColumn).execute();
+            System.out.println("✅ Ticket logs table updated with close_reason column");
+        } catch (SQLException e) {
+            System.err.println("❌ Failed to update ticket logs table: " + e.getMessage());
+        }
     }
 
     /**
@@ -49,9 +65,16 @@ public class TicketLogDAO {
      * Log when a ticket is closed
      */
     public void logTicketClosed(String channelId, String closedBy) {
+        logTicketClosedWithReason(channelId, closedBy, "No reason provided");
+    }
+
+    /**
+     * Log when a ticket is closed with a specific reason
+     */
+    public void logTicketClosedWithReason(String channelId, String closedBy, String closeReason) {
         String query = """
             UPDATE ticket_logs 
-            SET closed_at = CURRENT_TIMESTAMP, closed_by = ?, status = 'closed'
+            SET closed_at = CURRENT_TIMESTAMP, closed_by = ?, status = 'closed', close_reason = ?
             WHERE channel_id = ? AND status = 'open'
             """;
 
@@ -59,11 +82,12 @@ public class TicketLogDAO {
              PreparedStatement stmt = conn.prepareStatement(query)) {
 
             stmt.setString(1, closedBy);
-            stmt.setString(2, channelId);
+            stmt.setString(2, closeReason);
+            stmt.setString(3, channelId);
 
             int updated = stmt.executeUpdate();
             if (updated > 0) {
-                System.out.println("✅ Ticket closed logged: " + channelId + " by " + closedBy);
+                System.out.println("✅ Ticket closed logged: " + channelId + " by " + closedBy + " - Reason: " + closeReason);
             }
 
         } catch (SQLException e) {
@@ -247,7 +271,7 @@ public class TicketLogDAO {
      */
     public List<TicketLogEntry> getRecentTickets(String guildId, int limit) {
         String query = """
-            SELECT channel_name, owner_id, ticket_type, ticket_number, created_at, status
+            SELECT channel_name, owner_id, ticket_type, ticket_number, created_at, status, close_reason
             FROM ticket_logs 
             WHERE guild_id = ?
             ORDER BY created_at DESC
@@ -270,7 +294,8 @@ public class TicketLogDAO {
                         rs.getString("ticket_type"),
                         rs.getInt("ticket_number"),
                         rs.getTimestamp("created_at").toInstant(),
-                        rs.getString("status")
+                        rs.getString("status"),
+                        rs.getString("close_reason")
                 ));
             }
 
@@ -304,15 +329,17 @@ public class TicketLogDAO {
         public final int ticketNumber;
         public final Instant createdAt;
         public final String status;
+        public final String closeReason;
 
         public TicketLogEntry(String channelName, String ownerId, String ticketType,
-                              int ticketNumber, Instant createdAt, String status) {
+                              int ticketNumber, Instant createdAt, String status, String closeReason) {
             this.channelName = channelName;
             this.ownerId = ownerId;
             this.ticketType = ticketType;
             this.ticketNumber = ticketNumber;
             this.createdAt = createdAt;
             this.status = status;
+            this.closeReason = closeReason;
         }
     }
 }
