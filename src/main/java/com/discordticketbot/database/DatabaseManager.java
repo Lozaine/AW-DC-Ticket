@@ -5,6 +5,8 @@ import com.zaxxer.hikari.HikariDataSource;
 import io.github.cdimascio.dotenv.Dotenv;
 
 import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 
@@ -159,6 +161,38 @@ public class DatabaseManager {
         if (dataSource != null && !dataSource.isClosed()) {
             dataSource.close();
             System.out.println("Database connection pool closed.");
+        }
+    }
+
+    /**
+     * Migrate guild_configs table to add error_log_channel_id column if it doesn't exist
+     */
+    private void migrateGuildConfigsTable(Connection conn) throws SQLException {
+        // Check if error_log_channel_id column exists
+        String checkColumnQuery = """
+            SELECT column_name 
+            FROM information_schema.columns 
+            WHERE table_name = 'guild_configs' 
+            AND column_name = 'error_log_channel_id'
+            """;
+
+        try (PreparedStatement stmt = conn.prepareStatement(checkColumnQuery)) {
+            ResultSet rs = stmt.executeQuery();
+
+            if (!rs.next()) {
+                // Column doesn't exist, add it
+                System.out.println("🔄 Migrating guild_configs table: adding error_log_channel_id column...");
+
+                String addColumnQuery = """
+                    ALTER TABLE guild_configs 
+                    ADD COLUMN error_log_channel_id VARCHAR(20)
+                    """;
+
+                try (Statement alterStmt = conn.createStatement()) {
+                    alterStmt.execute(addColumnQuery);
+                    System.out.println("✅ Successfully added error_log_channel_id column to guild_configs table");
+                }
+            }
         }
     }
 }
