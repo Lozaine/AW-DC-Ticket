@@ -29,7 +29,7 @@ public class ReadyListener extends ListenerAdapter {
         System.out.println("📊 Connected to " + event.getGuildTotalCount() + " servers");
         System.out.println("🔧 Bot ID: " + event.getJDA().getSelfUser().getId());
 
-        // Register commands with proper error handling
+        // Register commands ONLY globally for bot profile visibility
         registerGlobalCommands();
 
         // Print helpful information
@@ -38,65 +38,33 @@ public class ReadyListener extends ListenerAdapter {
 
     /**
      * Register commands globally for bot profile visibility
+     * This is the ONLY place where commands should be registered
      */
     private void registerGlobalCommands() {
         List<CommandData> commands = CommandBuilder.buildCommands();
 
         System.out.println("\n🔄 Registering global slash commands...");
 
-        // Clear existing commands first
-        jda.updateCommands().queue(
-                cleared -> {
-                    System.out.println("✅ Cleared existing commands");
+        // Register commands globally (this is sufficient)
+        jda.updateCommands().addCommands(commands).queue(
+                success -> {
+                    System.out.println("✅ Successfully registered " + success.size() + " global commands:");
+                    System.out.println("   🔸 /help - Show help information");
+                    System.out.println("   🔸 /setup - Configure ticket system");
+                    System.out.println("   🔸 /panel - Send ticket panel");
+                    System.out.println("   🔸 /config - View configuration");
 
-                    // Register new commands
-                    jda.updateCommands().addCommands(commands).queue(
-                            success -> {
-                                System.out.println("✅ Successfully registered " + success.size() + " global commands:");
-                                System.out.println("   🔸 /help - Show help information");
-                                System.out.println("   🔸 /setup - Configure ticket system");
-                                System.out.println("   🔸 /panel - Send ticket panel");
-                                System.out.println("   🔸 /config - View configuration");
-
-                                System.out.println("\n📋 Commands are now:");
-                                System.out.println("   ✅ Registered globally");
-                                System.out.println("   ✅ Available via typing /");
-                                System.out.println("   ✅ Should appear in bot profile");
-
-                                // Also register to current guilds for immediate availability
-                                registerToCurrentGuilds();
-                            },
-                            error -> {
-                                System.err.println("❌ Failed to register global commands: " + error.getMessage());
-                                // Fallback: register to guilds individually
-                                registerToCurrentGuilds();
-                            }
-                    );
+                    System.out.println("\n📋 Commands are now:");
+                    System.out.println("   ✅ Registered globally only");
+                    System.out.println("   ✅ Available via typing /");
+                    System.out.println("   ✅ Will appear in bot profile");
+                    System.out.println("   ✅ No duplicates");
                 },
                 error -> {
-                    System.err.println("❌ Failed to clear commands: " + error.getMessage());
-                    // Continue with registration anyway
-                    jda.updateCommands().addCommands(commands).queue(
-                            success -> System.out.println("✅ Registered " + success.size() + " commands"),
-                            failure -> System.err.println("❌ Command registration failed: " + failure.getMessage())
-                    );
+                    System.err.println("❌ Failed to register global commands: " + error.getMessage());
+                    error.printStackTrace();
                 }
         );
-    }
-
-    /**
-     * Register commands to current guilds for immediate testing
-     */
-    private void registerToCurrentGuilds() {
-        System.out.println("🧪 Registering to current guilds for immediate testing...");
-        List<CommandData> commands = CommandBuilder.buildCommands();
-
-        for (Guild guild : jda.getGuilds()) {
-            guild.updateCommands().addCommands(commands).queue(
-                    success -> System.out.println("   ✅ " + guild.getName()),
-                    error -> System.out.println("   ❌ " + guild.getName() + ": " + error.getMessage())
-            );
-        }
     }
 
     /**
@@ -140,11 +108,7 @@ public class ReadyListener extends ListenerAdapter {
     @Override
     public void onGuildJoin(GuildJoinEvent event) {
         System.out.println("🆕 Joined guild: " + event.getGuild().getName());
-
-        // Register commands to this guild for immediate availability
-        event.getGuild().updateCommands().addCommands(CommandBuilder.buildCommands()).queue(
-                success -> System.out.println("   ✅ Commands registered to " + event.getGuild().getName()),
-                error -> System.out.println("   ❌ Failed to register commands to " + event.getGuild().getName())
-        );
+        // Don't register commands here - global commands will work automatically
+        // Guild-specific registration would create duplicates
     }
 }
