@@ -7,7 +7,6 @@ import com.discordticketbot.listeners.CommandListener;
 import com.discordticketbot.listeners.ButtonListener;
 import com.discordticketbot.listeners.MessageListener;
 import com.discordticketbot.listeners.ReadyListener;
-import com.discordticketbot.utils.BotInviteUtil;
 import com.discordticketbot.utils.CommandDiagnosticUtil;
 import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.JDABuilder;
@@ -51,9 +50,6 @@ public class TicketBot {
 
         // Wait for bot to be ready, then print invite URLs
         jda.awaitReady();
-
-        // Print invite URLs with proper scopes for slash commands
-        BotInviteUtil.printInviteUrls(jda);
 
         // Print optimized invite URL for command visibility
         CommandDiagnosticUtil.printOptimizedInviteUrl(jda);
