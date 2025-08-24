@@ -7,6 +7,7 @@ import com.discordticketbot.handlers.PanelHandler;
 import com.discordticketbot.handlers.SetupHandler;
 import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEvent;
 import net.dv8tion.jda.api.hooks.ListenerAdapter;
+import com.discordticketbot.handlers.StatsHandler;
 
 import java.util.Map;
 
@@ -16,6 +17,7 @@ public class CommandListener extends ListenerAdapter {
     private final SetupHandler setupHandler;
     private final PanelHandler panelHandler;
     private final ConfigHandler configHandler;
+    private final StatsHandler statsHandler;
 
     public CommandListener(Map<String, GuildConfig> guildConfigs) {
         this.guildConfigs = guildConfigs;
@@ -23,6 +25,7 @@ public class CommandListener extends ListenerAdapter {
         this.setupHandler = new SetupHandler(guildConfigs);
         this.panelHandler = new PanelHandler(guildConfigs);
         this.configHandler = new ConfigHandler(guildConfigs);
+        this.statsHandler = new StatsHandler();
     }
 
     @Override
@@ -33,6 +36,7 @@ public class CommandListener extends ListenerAdapter {
             case "setup" -> setupHandler.handle(event);
             case "panel" -> panelHandler.handle(event);
             case "config" -> configHandler.handle(event);
+            case "stats" -> statsHandler.onSlashCommandInteraction(event);
         }
     }
 }
