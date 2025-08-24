@@ -5,7 +5,6 @@ import com.discordticketbot.database.DatabaseManager;
 import com.discordticketbot.database.GuildConfigDAO;
 import com.discordticketbot.listeners.CommandListener;
 import com.discordticketbot.listeners.ButtonListener;
-import com.discordticketbot.listeners.MessageListener;
 import com.discordticketbot.listeners.ReadyListener;
 import com.discordticketbot.utils.CommandDiagnosticUtil;
 import net.dv8tion.jda.api.JDA;
@@ -13,7 +12,6 @@ import net.dv8tion.jda.api.JDABuilder;
 
 import java.util.HashMap;
 import java.util.Map;
-import java.util.concurrent.TimeUnit;
 
 public class TicketBot {
     private final String botToken;
@@ -43,8 +41,7 @@ public class TicketBot {
                 .addEventListeners(
                         new ReadyListener(jda, guildConfigs),
                         new CommandListener(guildConfigs),
-                        new ButtonListener(guildConfigs),
-                        new MessageListener()
+                        new ButtonListener(guildConfigs)
                 )
                 .build();
 

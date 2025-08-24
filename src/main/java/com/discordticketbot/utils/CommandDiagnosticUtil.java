@@ -72,26 +72,4 @@ public class CommandDiagnosticUtil {
         System.out.println("   • ✅ Proper bot integration");
         System.out.println("   • ✅ Commands appear in profile");
     }
-
-    /**
-     * Simple method to check if commands are working
-     */
-    public static void testCommandAvailability(JDA jda) {
-        System.out.println("\n🧪 TESTING COMMAND AVAILABILITY");
-        System.out.println("─".repeat(40));
-
-        jda.retrieveCommands().queue(
-                commands -> {
-                    System.out.println("Global commands available: " + commands.size());
-                    commands.forEach(cmd -> System.out.println("  ✓ /" + cmd.getName()));
-
-                    if (commands.size() >= 4) {
-                        System.out.println("✅ All commands available for users");
-                    } else {
-                        System.out.println("⚠️  Some commands may be missing");
-                    }
-                },
-                error -> System.out.println("❌ Cannot retrieve commands: " + error.getMessage())
-        );
-    }
 }
