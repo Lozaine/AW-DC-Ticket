@@ -40,6 +40,9 @@ public class CommandBuilder {
                 // Panel command - sends ticket creation panel
                 Commands.slash("panel", "🎫 Send the ticket creation panel to configured channel (Administrator required)"),
 
+                // Slash command - view ticket statistics
+                Commands.slash("stats", "📊 View ticket statistics for this server (Administrator required)"),
+
                 // Config command - view current settings
                 Commands.slash("config", "🔧 View current bot configuration and settings (Administrator required)")
         );

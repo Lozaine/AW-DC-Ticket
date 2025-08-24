@@ -1,6 +1,7 @@
 package com.discordticketbot.handlers;
 
 import com.discordticketbot.config.GuildConfig;
+import com.discordticketbot.database.TicketLogDAO;
 import com.discordticketbot.utils.PermissionUtil;
 import com.discordticketbot.utils.TranscriptUtil;
 import net.dv8tion.jda.api.EmbedBuilder;
@@ -17,14 +18,15 @@ import java.awt.*;
 import java.io.File;
 import java.util.EnumSet;
 import java.util.Map;
-import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 public class TicketHandler {
     private final Map<String, GuildConfig> guildConfigs;
+    private final TicketLogDAO ticketLogDAO;
 
     public TicketHandler(Map<String, GuildConfig> guildConfigs) {
         this.guildConfigs = guildConfigs;
+        this.ticketLogDAO = new TicketLogDAO();
     }
 
     public void createTicket(ButtonInteractionEvent event, String type, String emoji, Color color) {
@@ -45,7 +47,8 @@ public class TicketHandler {
 
         // Generate channel name with numeric counter
         String baseChannelName = "ticket-" + user.getName().toLowerCase().replaceAll("[^a-z0-9]", "");
-        String channelName = generateNextTicketName(guild, baseChannelName);
+        int ticketNumber = config.getNextTicketNumber();
+        String channelName = String.format("%s-%03d", baseChannelName, ticketNumber);
 
         // Check if user already has an open ticket
         for (TextChannel existingChannel : guild.getTextChannels()) {
@@ -69,6 +72,7 @@ public class TicketHandler {
                 .addMemberPermissionOverride(user.getIdLong(),
                         EnumSet.of(Permission.VIEW_CHANNEL, Permission.MESSAGE_SEND, Permission.MESSAGE_HISTORY, Permission.MESSAGE_ATTACH_FILES), null)
                 .queue(channel -> {
+                    // Set up support role permissions
                     for (String roleId : config.supportRoleIds) {
                         Role sr = guild.getRoleById(roleId);
                         if (sr != null) {
@@ -82,11 +86,22 @@ public class TicketHandler {
                     // Store user ID in channel topic for identification
                     channel.getManager().setTopic(user.getId()).queue();
 
+                    // 🆕 LOG TICKET CREATION TO DATABASE
+                    ticketLogDAO.logTicketCreated(
+                            guild.getId(),
+                            channel.getId(),
+                            channel.getName(),
+                            user.getId(),
+                            type,
+                            ticketNumber
+                    );
+
                     EmbedBuilder welcomeEmbed = new EmbedBuilder()
                             .setTitle(emoji + " " + type + " Ticket Created")
                             .setDescription("Hello " + user.getAsMention() + "!\n\n" +
                                     "Thank you for creating a **" + type.toLowerCase() + "** ticket. Please describe your issue in detail and our staff will assist you shortly.\n\n" +
                                     "**Ticket Type:** " + type + "\n" +
+                                    "**Ticket Number:** #" + ticketNumber + "\n" +
                                     "**Created by:** " + user.getAsMention() + "\n" +
                                     "**Created at:** <t:" + (System.currentTimeMillis() / 1000L) + ":F>")
                             .setColor(color)
@@ -114,23 +129,6 @@ public class TicketHandler {
                 });
     }
 
-    /**
-     * Generates the next available ticket name with persistent global counter
-     * Format: ticket-username-001, ticket-username-002, etc.
-     * Numbers continue globally even after tickets are deleted
-     */
-    private String generateNextTicketName(Guild guild, String baseChannelName) {
-        GuildConfig config = guildConfigs.get(guild.getId());
-        if (config == null) {
-            // Fallback to old method if config not found
-            return baseChannelName + "-001";
-        }
-
-        // Get next ticket number from persistent counter
-        int nextNumber = config.getNextTicketNumber();
-        return String.format("%s-%03d", baseChannelName, nextNumber);
-    }
-
     public void showCloseOptions(ButtonInteractionEvent event) {
         TextChannel channel = event.getChannel().asTextChannel();
         User user = event.getUser();
@@ -143,6 +141,9 @@ public class TicketHandler {
                     .setEphemeral(true).queue();
             return;
         }
+
+        // 🆕 LOG TICKET CLOSURE TO DATABASE
+        ticketLogDAO.logTicketClosed(channel.getId(), user.getId());
 
         EmbedBuilder closeEmbed = new EmbedBuilder()
                 .setTitle("🔒 Close Ticket Confirmation")
@@ -188,6 +189,9 @@ public class TicketHandler {
             event.reply("❌ Could not identify the original ticket owner.").setEphemeral(true).queue();
             return;
         }
+
+        // 🆕 LOG TICKET REOPEN TO DATABASE
+        ticketLogDAO.logTicketReopened(channel.getId(), event.getUser().getId());
 
         channel.getManager()
                 .putMemberPermissionOverride(Long.parseLong(userId),
@@ -260,6 +264,9 @@ public class TicketHandler {
         }
 
         TextChannel channel = event.getChannel().asTextChannel();
+
+        // 🆕 LOG TICKET DELETION TO DATABASE
+        ticketLogDAO.logTicketDeleted(channel.getId(), event.getUser().getId());
 
         EmbedBuilder deleteEmbed = new EmbedBuilder()
                 .setTitle("🗑️ Ticket Deleting")
