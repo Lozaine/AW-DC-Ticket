@@ -1,7 +1,6 @@
 package com.discordticketbot.database;
 
 import java.sql.*;
-import java.time.LocalDateTime;
 
 public class CloseRequestDAO {
     private final DatabaseManager dbManager;
@@ -276,7 +275,7 @@ public class CloseRequestDAO {
     public void cleanupOldCloseRequests(int daysOld) {
         String query = """
             DELETE FROM close_requests 
-            WHERE status != 'pending' AND created_at < CURRENT_TIMESTAMP - INTERVAL '? days'
+            WHERE status != 'pending' AND created_at < CURRENT_TIMESTAMP - (? * INTERVAL '1 day')
             """;
 
         try (Connection conn = dbManager.getConnection();

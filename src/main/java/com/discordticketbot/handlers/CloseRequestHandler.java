@@ -3,7 +3,6 @@ package com.discordticketbot.handlers;
 import com.discordticketbot.config.GuildConfig;
 import com.discordticketbot.database.CloseRequestDAO;
 import com.discordticketbot.database.TicketLogDAO;
-import com.discordticketbot.handlers.TicketHandler;
 import com.discordticketbot.utils.PermissionUtil;
 import com.discordticketbot.utils.ErrorLogger;
 import net.dv8tion.jda.api.EmbedBuilder;
@@ -14,7 +13,6 @@ import net.dv8tion.jda.api.events.interaction.component.ButtonInteractionEvent;
 import net.dv8tion.jda.api.interactions.components.buttons.Button;
 
 import java.awt.*;
-import java.time.LocalDateTime;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
@@ -86,7 +84,7 @@ public class CloseRequestHandler {
                             (timeoutHours != null ? "**Auto-close timeout:** " + timeoutHours + " hours\n\n" : "\n") +
                             ownerMention + ", please confirm if your issue has been resolved:")
                     .setColor(Color.ORANGE)
-                    .setFooter("Close request • " + event.getUser().getAsTag());
+                    .setFooter("Close request • " + event.getUser().getName());
 
             if (timeoutHours != null) {
                 embed.addField("⏰ Automatic Closure",
@@ -248,8 +246,6 @@ public class CloseRequestHandler {
                 ticketLogDAO.logTicketAutoClosed(channelId, finalTimeoutHours);
 
                 // Close the ticket after a brief delay
-                TicketHandler ticketHandler = new TicketHandler(guildConfigs);
-                // Create a mock button event for closing
                 channel.delete().queueAfter(30, TimeUnit.SECONDS);
             } catch (Exception e) {
                 errorLogger.logError(channel.getGuild(), "Auto Close Ticket",
