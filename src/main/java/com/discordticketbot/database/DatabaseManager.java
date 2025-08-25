@@ -134,7 +134,7 @@ public class DatabaseManager {
                 ticket_number INTEGER,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 closed_at TIMESTAMP,
-                closed_by VARCHAR(20),
+                closed_by VARCHAR(255),
                 status VARCHAR(20) DEFAULT 'open'
             )
             """;
@@ -211,6 +211,12 @@ public class DatabaseManager {
             // Migration 1: Add error_log_channel_id column to guild_configs
             migrateGuildConfigsTable(conn);
 
+            // Migration 2: Fix ticket_logs table schema
+            migrateTicketLogsTable(conn);
+
+            // Migration 3: Fix close_requests table schema
+            migrateCloseRequestsTable(conn);
+
             System.out.println("✅ Database migrations completed successfully!");
 
         } catch (SQLException e) {
@@ -250,6 +256,134 @@ public class DatabaseManager {
                 }
             } else {
                 System.out.println("✅ error_log_channel_id column already exists in guild_configs table");
+            }
+        }
+    }
+
+    /**
+     * Migrate ticket_logs table to fix schema issues
+     */
+    private void migrateTicketLogsTable(Connection conn) throws SQLException {
+        // Check if ticket_number column exists
+        String checkColumnQuery = """
+            SELECT column_name 
+            FROM information_schema.columns 
+            WHERE table_name = 'ticket_logs' 
+            AND column_name = 'ticket_number'
+            """;
+
+        try (PreparedStatement stmt = conn.prepareStatement(checkColumnQuery)) {
+            ResultSet rs = stmt.executeQuery();
+
+            if (!rs.next()) {
+                // Column doesn't exist, add it
+                System.out.println("🔄 Migrating ticket_logs table: adding ticket_number column...");
+
+                String addColumnQuery = """
+                    ALTER TABLE ticket_logs 
+                    ADD COLUMN ticket_number INTEGER
+                    """;
+
+                try (Statement alterStmt = conn.createStatement()) {
+                    alterStmt.execute(addColumnQuery);
+                    System.out.println("✅ Successfully added ticket_number column to ticket_logs table");
+                }
+            } else {
+                System.out.println("✅ ticket_number column already exists in ticket_logs table");
+            }
+        }
+
+        // Check and alter closed_by column length if needed
+        String checkClosedByQuery = """
+            SELECT character_maximum_length 
+            FROM information_schema.columns 
+            WHERE table_name = 'ticket_logs' 
+            AND column_name = 'closed_by'
+            """;
+
+        try (PreparedStatement stmt = conn.prepareStatement(checkClosedByQuery)) {
+            ResultSet rs = stmt.executeQuery();
+
+            if (rs.next()) {
+                Integer maxLength = rs.getObject("character_maximum_length", Integer.class);
+                if (maxLength != null && maxLength < 255) {
+                    System.out.println("🔄 Migrating ticket_logs table: altering closed_by column length from " + maxLength + " to 255...");
+
+                    String alterColumnQuery = """
+                        ALTER TABLE ticket_logs 
+                        ALTER COLUMN closed_by TYPE VARCHAR(255)
+                        """;
+
+                    try (Statement alterStmt = conn.createStatement()) {
+                        alterStmt.execute(alterColumnQuery);
+                        System.out.println("✅ Successfully altered closed_by column length to 255");
+                    }
+                } else {
+                    System.out.println("✅ closed_by column already has sufficient length");
+                }
+            }
+        }
+    }
+
+    /**
+     * Migrate close_requests table to fix schema issues
+     */
+    private void migrateCloseRequestsTable(Connection conn) throws SQLException {
+        // Check if excluded_from_autoclose column exists
+        String checkColumnQuery = """
+            SELECT column_name 
+            FROM information_schema.columns 
+            WHERE table_name = 'close_requests' 
+            AND column_name = 'excluded_from_autoclose'
+            """;
+
+        try (PreparedStatement stmt = conn.prepareStatement(checkColumnQuery)) {
+            ResultSet rs = stmt.executeQuery();
+
+            if (!rs.next()) {
+                // Column doesn't exist, add it
+                System.out.println("🔄 Migrating close_requests table: adding excluded_from_autoclose column...");
+
+                String addColumnQuery = """
+                    ALTER TABLE close_requests 
+                    ADD COLUMN excluded_from_autoclose BOOLEAN DEFAULT FALSE
+                    """;
+
+                try (Statement alterStmt = conn.createStatement()) {
+                    alterStmt.execute(addColumnQuery);
+                    System.out.println("✅ Successfully added excluded_from_autoclose column to close_requests table");
+                }
+            } else {
+                System.out.println("✅ excluded_from_autoclose column already exists in close_requests table");
+            }
+        }
+
+        // Check if responded_by column exists
+        String checkRespondedByQuery = """
+            SELECT column_name 
+            FROM information_schema.columns 
+            WHERE table_name = 'close_requests' 
+            AND column_name = 'responded_by'
+            """;
+
+        try (PreparedStatement stmt = conn.prepareStatement(checkRespondedByQuery)) {
+            ResultSet rs = stmt.executeQuery();
+
+            if (!rs.next()) {
+                // Column doesn't exist, add it
+                System.out.println("🔄 Migrating close_requests table: adding responded_by column...");
+
+                String addColumnQuery = """
+                    ALTER TABLE close_requests 
+                    ADD COLUMN responded_by VARCHAR(20)
+                    """;
+
+                try (Statement alterStmt = conn.createStatement()) {
+                    alterStmt.execute(addColumnQuery);
+                    System.out.println("✅ Successfully added responded_by column to close_requests table");
+                }
+            } else {
+                System.out.println("✅ responded_by column already exists in close_requests table");
             }
         }
     }

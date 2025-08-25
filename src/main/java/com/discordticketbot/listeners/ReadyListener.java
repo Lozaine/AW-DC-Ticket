@@ -18,7 +18,7 @@ public class ReadyListener extends ListenerAdapter {
 
     @Override
     public void onReady(ReadyEvent event) {
-        System.out.println("🤖 Bot logged in as: " + event.getJDA().getSelfUser().getAsTag());
+        System.out.println("🤖 Bot logged in as: " + event.getJDA().getSelfUser().getName());
         System.out.println("🏠 Connected to " + event.getJDA().getGuilds().size() + " guilds");
 
         // Register global slash commands

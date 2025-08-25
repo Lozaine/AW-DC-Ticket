@@ -176,7 +176,7 @@ public class TranscriptUtil {
         // Messages
         for (Message message : sortedMessages) {
             html.append("<div class='message'>\n");
-            html.append("<div class='author'>").append(escapeHtml(message.getAuthor().getAsTag()));
+            html.append("<div class='author'>").append(escapeHtml(message.getAuthor().getName()));
 
             if (message.getAuthor().isBot()) {
                 html.append(" <span class='bot-tag'>BOT</span>");

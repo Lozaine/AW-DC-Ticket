@@ -58,7 +58,7 @@ public class AssignmentHandler {
                 .setDescription("This ticket has been assigned to " + assignee.getAsMention() + ".\n\n" +
                         "They now have explicit access to this channel.")
                 .setColor(Color.CYAN)
-                .setFooter("Assigned by " + event.getUser().getAsTag());
+                .setFooter("Assigned by " + event.getUser().getName());
 
         channel.sendMessageEmbeds(embed.build()).queue();
         event.reply("✅ Assigned to " + assignee.getEffectiveName() + ".").setEphemeral(true).queue();
