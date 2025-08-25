@@ -1,4 +1,3 @@
-
 package com.discordticketbot.utils;
 
 import com.discordticketbot.config.GuildConfig;
@@ -10,13 +9,10 @@ import net.dv8tion.jda.api.entities.channel.concrete.TextChannel;
 import java.awt.*;
 import java.io.PrintWriter;
 import java.io.StringWriter;
-import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
 import java.util.Map;
 
 public class ErrorLogger {
     private final Map<String, GuildConfig> guildConfigs;
-    private static final DateTimeFormatter TIMESTAMP_FORMAT = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
     public ErrorLogger(Map<String, GuildConfig> guildConfigs) {
         this.guildConfigs = guildConfigs;
@@ -29,12 +25,12 @@ public class ErrorLogger {
         try {
             GuildConfig config = guildConfigs.get(guild.getId());
             if (config == null || config.errorLogChannelId == null) {
-                // Fallback to console logging with detailed info
+                // Fallback to console logging with improved formatting
                 System.err.println("═══════════════════════════════════════");
-                System.err.println("[ERROR LOG] " + LocalDateTime.now().format(TIMESTAMP_FORMAT));
+                System.err.println("[ERROR LOG] " + TimestampUtil.getReadableTimestamp());
                 System.err.println("Guild: " + guild.getName() + " (" + guild.getId() + ")");
                 System.err.println("Operation: " + operation);
-                System.err.println("User: " + (user != null ? user.getAsTag() + " (" + user.getId() + ")" : "Unknown"));
+                System.err.println("User: " + (user != null ? UserDisplayUtil.getUserLogInfo(user) : "Unknown"));
                 System.err.println("Error: " + errorMessage);
                 if (exception != null) {
                     exception.printStackTrace();
@@ -49,13 +45,13 @@ public class ErrorLogger {
                 return;
             }
 
-            // Create detailed error embed in transcript style
+            // Create detailed error embed with proper formatting
             EmbedBuilder embed = new EmbedBuilder()
                     .setTitle("🚨 Bot Error Report")
                     .setColor(Color.RED)
-                    .addField("📅 Timestamp", LocalDateTime.now().format(TIMESTAMP_FORMAT) + " UTC+08", true)
+                    .addField("📅 Timestamp", TimestampUtil.getCurrentTimestampForEmbeds(), true)
                     .addField("🏷️ Operation", operation, true)
-                    .addField("👤 User", user != null ? user.getAsMention() + " (" + user.getAsTag() + ")" : "System/Unknown", true)
+                    .addField("👤 User", user != null ? UserDisplayUtil.getFormattedUserInfo(user) : "System/Unknown", true)
                     .addField("🏠 Guild", guild.getName(), true)
                     .addField("❌ Error Message", "```\n" + errorMessage + "\n```", false);
 
@@ -110,7 +106,7 @@ public class ErrorLogger {
     }
 
     /**
-     * Log info/success messages in transcript style
+     * Log info/success messages with improved formatting
      */
     public void logInfo(Guild guild, String operation, String message, User user) {
         try {
@@ -127,9 +123,9 @@ public class ErrorLogger {
             EmbedBuilder embed = new EmbedBuilder()
                     .setTitle("ℹ️ Bot Activity Log")
                     .setColor(Color.BLUE)
-                    .addField("📅 Timestamp", LocalDateTime.now().format(TIMESTAMP_FORMAT) + " UTC+08", true)
+                    .addField("📅 Timestamp", TimestampUtil.getCurrentTimestampForEmbeds(), true)
                     .addField("🏷️ Operation", operation, true)
-                    .addField("👤 User", user != null ? user.getAsMention() + " (" + user.getAsTag() + ")" : "System", true)
+                    .addField("👤 User", user != null ? UserDisplayUtil.getFormattedUserInfo(user) : "System", true)
                     .addField("ℹ️ Details", message, false)
                     .setFooter("Bot Activity Logger • " + guild.getName(), guild.getIconUrl());
 
@@ -141,7 +137,7 @@ public class ErrorLogger {
     }
 
     /**
-     * Log successful operations
+     * Log successful operations with improved formatting
      */
     public void logSuccess(Guild guild, String operation, String message, User user) {
         try {
@@ -158,9 +154,9 @@ public class ErrorLogger {
             EmbedBuilder embed = new EmbedBuilder()
                     .setTitle("✅ Bot Success Log")
                     .setColor(Color.GREEN)
-                    .addField("📅 Timestamp", LocalDateTime.now().format(TIMESTAMP_FORMAT) + " UTC+08", true)
+                    .addField("📅 Timestamp", TimestampUtil.getCurrentTimestampForEmbeds(), true)
                     .addField("🏷️ Operation", operation, true)
-                    .addField("👤 User", user != null ? user.getAsMention() + " (" + user.getAsTag() + ")" : "System", true)
+                    .addField("👤 User", user != null ? UserDisplayUtil.getFormattedUserInfo(user) : "System", true)
                     .addField("✅ Result", message, false)
                     .setFooter("Bot Success Logger • " + guild.getName(), guild.getIconUrl());
 
