@@ -67,18 +67,16 @@ public class SetupHandler {
         String panelChannelId = event.getOption("panel_channel").getAsChannel().getId();
         TextChannel transcriptChannel = (TextChannel) event.getOption("transcript_channel").getAsChannel();
 
-        // Required error log channel
-        if (event.getOption("error_log_channel") == null) {
-            event.reply("❌ Error log channel is required. Please specify a channel where bot errors will be logged.").setEphemeral(true).queue();
-            return;
+        // Optional error log channel
+        TextChannel errorLogChannel = null;
+        if (event.getOption("error_log_channel") != null) {
+            var errorChannel = event.getOption("error_log_channel").getAsChannel();
+            if (!(errorChannel instanceof TextChannel)) {
+                event.reply("❌ Error log channel must be a text channel.").setEphemeral(true).queue();
+                return;
+            }
+            errorLogChannel = (TextChannel) errorChannel;
         }
-
-        var errorChannel = event.getOption("error_log_channel").getAsChannel();
-        if (!(errorChannel instanceof TextChannel)) {
-            event.reply("❌ Error log channel must be a text channel.").setEphemeral(true).queue();
-            return;
-        }
-        TextChannel errorLogChannel = (TextChannel) errorChannel;
 
         // Parse multiple roles from the STRING option
         String supportRaw = event.getOption("support_roles").getAsString();
@@ -120,7 +118,7 @@ public class SetupHandler {
         config.categoryId = categoryId;
         config.panelChannelId = panelChannelId;
         config.transcriptChannelId = transcriptChannel.getId();
-        config.errorLogChannelId = errorLogChannel.getId();
+        config.errorLogChannelId = errorLogChannel != null ? errorLogChannel.getId() : null;
 
         // Clear existing support roles
         config.supportRoleIds.clear();
@@ -144,9 +142,15 @@ public class SetupHandler {
                 .setDescription("Your ticket system has been successfully configured with Administrator permissions!\n\n**Configuration saved to database** ✅")
                 .addField("📁 Ticket Category", category.getAsMention(), true)
                 .addField("📋 Panel Channel", panelChannel.getAsMention(), true)
-                .addField("📜 Transcript Channel", transcriptChannel.getAsMention(), true)
-                .addField("🚨 Error Log Channel", errorLogChannel.getAsMention(), true)
-                .addField("👥 Support Roles", supportRolesList, false)
+                .addField("📜 Transcript Channel", transcriptChannel.getAsMention(), true);
+
+        if (errorLogChannel != null) {
+            embed.addField("🚨 Error Log Channel", errorLogChannel.getAsMention(), true);
+        } else {
+            embed.addField("🚨 Error Log Channel", "Not configured (errors will log to console)", true);
+        }
+
+        embed.addField("👥 Support Roles", supportRolesList, false)
                 .addField("🔢 Ticket Counter", "Initialized at: " + config.ticketCounter + " (next: " + (config.ticketCounter + 1) + ")", true)
                 .addField("🎯 Next Step", "Use `/panel` to send the ticket panel to the configured channel!", false)
                 .setColor(Color.GREEN)

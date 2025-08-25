@@ -30,6 +30,9 @@ public class CommandBuilder {
                 true
         );
 
+        OptionData errorLogOpt = new OptionData(OptionType.CHANNEL, "error_log_channel", "🚨 Channel where bot errors will be logged (optional)", false)
+                .setChannelTypes(ChannelType.TEXT);
+
         // Close request options
         OptionData reasonOpt = new OptionData(OptionType.STRING, "reason", "📝 Reason for requesting ticket closure", true);
         OptionData timeoutOpt = new OptionData(OptionType.INTEGER, "timeout", "⏰ Hours until auto-close (optional)", false)
@@ -42,7 +45,7 @@ public class CommandBuilder {
 
                 // Setup command - main configuration command
                 Commands.slash("setup", "⚙️ Configure the ticket system for this server (Administrator required)")
-                        .addOptions(categoryOpt, panelChannelOpt, supportRolesOpt, transcriptOpt),
+                        .addOptions(categoryOpt, panelChannelOpt, supportRolesOpt, transcriptOpt, errorLogOpt),
 
                 // Panel command - sends ticket creation panel
                 Commands.slash("panel", "🎫 Send the ticket creation panel to configured channel (Administrator required)"),
