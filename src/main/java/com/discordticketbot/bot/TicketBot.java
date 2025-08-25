@@ -25,11 +25,19 @@ public class TicketBot {
 
         // Initialize database connection
         try {
+            System.out.println("🔄 Initializing database connection...");
             DatabaseManager.getInstance(); // Initialize database
             this.guildConfigDAO = new GuildConfigDAO();
             System.out.println("✅ Database initialized successfully!");
+
+            // Test database connection
+            System.out.println("🔄 Testing database connection...");
+            DatabaseManager.getInstance().getConnection().close();
+            System.out.println("✅ Database connection test successful!");
+
         } catch (Exception e) {
             System.err.println("❌ Failed to initialize database: " + e.getMessage());
+            e.printStackTrace();
             throw new RuntimeException("Database initialization failed", e);
         }
     }
@@ -42,7 +50,8 @@ public class TicketBot {
                 .addEventListeners(
                         new ReadyListener(jda, guildConfigs),
                         new CommandListener(guildConfigs),
-                        new ButtonListener(guildConfigs)
+                        new ButtonListener(guildConfigs),
+                        new ModalListener(guildConfigs)
                 )
                 .build();
 
@@ -65,6 +74,7 @@ public class TicketBot {
      */
     private void loadGuildConfigsFromDatabase() {
         try {
+            System.out.println("🔄 Loading guild configurations from database...");
             Map<String, GuildConfig> loadedConfigs = guildConfigDAO.loadAllGuildConfigs();
 
             // Set guild IDs and prepare configs for runtime use
@@ -73,6 +83,14 @@ public class TicketBot {
                 GuildConfig config = entry.getValue();
                 config.setGuildId(guildId);
                 guildConfigs.put(guildId, config);
+
+                // Debug: Print loaded config details
+                System.out.println("📋 Loaded config for guild " + guildId + ":");
+                System.out.println("   - Category ID: " + config.categoryId);
+                System.out.println("   - Panel Channel ID: " + config.panelChannelId);
+                System.out.println("   - Transcript Channel ID: " + config.transcriptChannelId);
+                System.out.println("   - Support Roles: " + config.supportRoleIds.size());
+                System.out.println("   - Ticket Counter: " + config.ticketCounter);
             }
 
             System.out.println("✅ Loaded " + guildConfigs.size() + " guild configurations from database");

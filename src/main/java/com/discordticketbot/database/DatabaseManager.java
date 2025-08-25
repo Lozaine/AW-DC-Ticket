@@ -108,7 +108,205 @@ public class DatabaseManager {
                 error_log_channel_id TEXT,
                 ticket_counter INTEGER DEFAULT 0,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                updated_at TIMESTAMP DEFAULTpackage com.discordticketbot.database;
+                                            
+                                            import com.zaxxer.hikari.HikariConfig;
+                                            import com.zaxxer.hikari.HikariDataSource;
+                                            import io.github.cdimascio.dotenv.Dotenv;
+                                            
+                                            import java.sql.Connection;
+                                            import java.sql.PreparedStatement;
+                                            import java.sql.ResultSet;
+                                            import java.sql.SQLException;
+                                            import java.sql.Statement;
+                                            
+                                            public class DatabaseManager {
+                                                private static DatabaseManager instance;
+                                                private HikariDataSource dataSource;
+                                            
+                                                private DatabaseManager() {
+                                                    initializeDatabase();
+                                                    createTables();
+                                                }
+                                            
+                                                public static DatabaseManager getInstance() {
+                                                    if (instance == null) {
+                                                        instance = new DatabaseManager();
+                                                    }
+                                                    return instance;
+                                                }
+                                            
+                                                private void initializeDatabase() {
+                                                    String databaseUrl = System.getenv("DATABASE_URL");
+                                            
+                                                    // Fallback to .env file for local development
+                                                    if (databaseUrl == null || databaseUrl.isBlank()) {
+                                                        try {
+                                                            Dotenv dotenv = Dotenv.configure().ignoreIfMissing().load();
+                                                            databaseUrl = dotenv.get("DATABASE_URL");
+                                                        } catch (Exception e) {
+                                                            System.out.println("Note: Could not load DATABASE_URL from .env file");
+                                                        }
+                                                    }
+                                            
+                                                    if (databaseUrl == null || databaseUrl.isBlank()) {
+                                                        throw new RuntimeException("DATABASE_URL environment variable is not set. Please configure your PostgreSQL database URL.");
+                                                    }
+                                            
+                                                    // Railway provides DATABASE_URL in format: postgresql://username:password@host:port/database
+                                                    // We need to convert it to JDBC format: jdbc:postgresql://host:port/database
+                                                    String jdbcUrl;
+                                                    String username = null;
+                                                    String password = null;
+                                            
+                                                    if (databaseUrl.startsWith("postgresql://")) {
+                                                        try {
+                                                            // Parse Railway DATABASE_URL format
+                                                            java.net.URI uri = new java.net.URI(databaseUrl);
+                                                            if (uri.getUserInfo() != null) {
+                                                                String[] userInfo = uri.getUserInfo().split(":");
+                                                                username = userInfo[0];
+                                                                password = userInfo.length > 1 ? userInfo[1] : null;
+                                                            }
+                                                            jdbcUrl = "jdbc:postgresql://" + uri.getHost() + ":" + uri.getPort() + uri.getPath();
+                                                            System.out.println("✅ Parsed Railway DATABASE_URL successfully");
+                                                        } catch (Exception e) {
+                                                            System.err.println("❌ Failed to parse DATABASE_URL: " + e.getMessage());
+                                                            throw new RuntimeException("Invalid DATABASE_URL format", e);
+                                                        }
+                                                    } else if (databaseUrl.startsWith("jdbc:postgresql://")) {
+                                                        // Already in JDBC format (local development)
+                                                        jdbcUrl = databaseUrl;
+                                                        System.out.println("✅ Using JDBC DATABASE_URL format");
+                                                    } else {
+                                                        throw new RuntimeException("DATABASE_URL must be in PostgreSQL format (postgresql://... or jdbc:postgresql://...)");
+                                                    }
+                                            
+                                                    HikariConfig config = new HikariConfig();
+                                                    config.setJdbcUrl(jdbcUrl);
+                                                    if (username != null) config.setUsername(username);
+                                                    if (password != null) config.setPassword(password);
+                                            
+                                                    // Connection pool settings
+                                                    config.setMaximumPoolSize(10);
+                                                    config.setMinimumIdle(2);
+                                                    config.setConnectionTimeout(30000);
+                                                    config.setIdleTimeout(600000);
+                                                    config.setMaxLifetime(1800000);
+                                            
+                                                    // PostgreSQL specific settings
+                                                    config.addDataSourceProperty("cachePrepStmts", "true");
+                                                    config.addDataSourceProperty("prepStmtCacheSize", "250");
+                                                    config.addDataSourceProperty("prepStmtCacheSqlLimit", "2048");
+                                            
+                                                    try {
+                                                        this.dataSource = new HikariDataSource(config);
+                                                        System.out.println("✅ Database connection established successfully!");
+                                                    } catch (Exception e) {
+                                                        System.err.println("❌ Failed to establish database connection: " + e.getMessage());
+                                                        throw new RuntimeException("Database connection failed", e);
+                                                    }
+                                                }
+                                            
+                                                private void createTables() {
+                                                    String createGuildConfigTable =
+                            ""\"
+                                                        CREATE TABLE IF NOT EXISTS guild_configs (
+                                                            guild_id VARCHAR(20) PRIMARY KEY,
+                                                            category_id TEXT,
+                                                            panel_channel_id TEXT,
+                                                            transcript_channel_
+                                                                        error_log_channel_
+                                                                        ticket_counter INTEGER DE
+                                                                        created_at TIMESTAMP DEFAULT CURRENT_TI
+                                                                        updated_at TIMESTAMP DEFAULT CURRENT_T
+                                                             
+                                                                 
+                                                
+                                                                String createSupportRolesTabl
+                                                                    CREATE TABLE IF NOT EXISTS support
+                                                                        id SERIAL PRIM
+                                                                        guild_id VARCHAR(20) N
+                                                                        role_id VARCHAR(20) N
+                                                                        FOREIGN KEY (guild_id) REFERENCES guild_configs(guild_id) ON DELETE 
+                                                                        UNIQUE(guild_id, 
+                                                             
+                                                                 
+                                                
+                                                                String createTicketLogsTabl
+                                                                    CREATE TABLE IF NOT EXISTS ticke
+                                                                        id SERIAL PRIM
+                                                                        guild_id VARCHAR(20) N
+                                                                        channel_id VARC
+                                                                        channel_name VARCH
+                                                                        owner_id VARC
+                                                                        ticket_type VARC
+                                                                        ticket_number 
+                                                                        created_at TIMESTAMP DEFAULT CURRENT_TI
+                                                                        closed_at TI
+                                                                        closed_by VARC
+                                                                        status VARCHAR(20) DEFAUL
+                                                             
+                                                                 
+                                                
+                                                                try (Connection conn = getConne
+                                                                     Statement stmt = conn.createStatem
+                                                
+                                                                    stmt.execute(createGuildConfi
+                                                                    stmt.execute(createSupportRole
+                                                                    stmt.execute(createTicketLog
+                                                
+                                                                    System.out.println("✅ Database tables initialized successf
+                                                
+                                                                } catch (SQLExcept
+                                                                    System.err.println("❌ Failed to create database tables: " + e.getMes
+                                                                    e.printStack
+                                                         
+                                                     
+                                                
+                                                            public Connection getConnection() throws SQLExc
+                                                                return dataSource.getConne
+                                                     
+                                                
+                                                            public void c
+                                                                if (dataSource != null && !dataSource.isClo
+                                                                    dataSource.
+                                                                    System.out.println("Database connection pool cl
+                                                         
+                                                     
+                                                
+                                                       
+                                                             * Migrate guild_configs table to add error_log_channel_id column if it doesn
+                                                       
+                                                            private void migrateGuildConfigsTable(Connection conn) throws SQLExc
+                                                                // Check if error_log_channel_id colum
+                                                                String checkColumnQuer
+                                                                    SELECT colum
+                                                                    FROM information_schema.c
+                                                                    WHERE table_name = 'guild_co
+                                                                    AND column_name = 'error_log_cha
+                                                                 
+                                                
+                                                                try (PreparedStatement stmt = conn.prepareStatement(checkColumnQ
+                                                                    ResultSet rs = stmt.execute
+                                                
+                                                                    if (!rs.n
+                                                                        // Column doesn't exist
+                                                                        System.out.println("🔄 Migrating guild_configs table: adding error_log_channel_id colu
+                                                
+                                                                        String addColumnQuer
+                                                                            ALTER TABLE guild_c
+                                                                            ADD COLUMN error_log_channel_id VAR
+                                                                         
+                                                
+                                                                        try (Statement alterStmt = conn.createStatem
+                                                                            alterStmt.execute(addColum
+                                                                            System.out.println("✅ Successfully added error_log_channel_id column to guild_configs 
+                                                                 
+                                                             
+                                                         
+                                                     
+                                                        } CURRENT_TIMESTAMP
             )
             """;
 

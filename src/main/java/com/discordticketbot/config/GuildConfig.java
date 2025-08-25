@@ -32,7 +32,8 @@ public class GuildConfig {
 
     public boolean isConfigured() {
         return categoryId != null && !supportRoleIds.isEmpty()
-                && transcriptChannelId != null && panelChannelId != null;
+                && transcriptChannelId != null && panelChannelId != null
+                && errorLogChannelId != null;
     }
 
     /**
