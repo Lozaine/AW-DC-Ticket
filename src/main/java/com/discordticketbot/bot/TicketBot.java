@@ -32,8 +32,12 @@ public class TicketBot {
 
             // Test database connection
             System.out.println("🔄 Testing database connection...");
-            DatabaseManager.getInstance().getConnection().close();
-            System.out.println("✅ Database connection test successful!");
+            boolean testResult = DatabaseManager.getInstance().testConnection();
+            if (testResult) {
+                System.out.println("✅ Database connection test successful!");
+            } else {
+                throw new RuntimeException("Database connection test failed");
+            }
 
         } catch (Exception e) {
             System.err.println("❌ Failed to initialize database: " + e.getMessage());
@@ -48,7 +52,7 @@ public class TicketBot {
 
         jda = JDABuilder.createDefault(botToken)
                 .addEventListeners(
-                        new ReadyListener(jda, guildConfigs),
+                        new ReadyListener(guildConfigs),
                         new CommandListener(guildConfigs),
                         new ButtonListener(guildConfigs),
                         new ModalListener(guildConfigs)
@@ -89,6 +93,7 @@ public class TicketBot {
                 System.out.println("   - Category ID: " + config.categoryId);
                 System.out.println("   - Panel Channel ID: " + config.panelChannelId);
                 System.out.println("   - Transcript Channel ID: " + config.transcriptChannelId);
+                System.out.println("   - Error Log Channel ID: " + config.errorLogChannelId);
                 System.out.println("   - Support Roles: " + config.supportRoleIds.size());
                 System.out.println("   - Ticket Counter: " + config.ticketCounter);
             }

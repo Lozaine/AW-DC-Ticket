@@ -1,10 +1,6 @@
-
 package com.discordticketbot.database;
 
-import java.sql.Connection;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
-import java.sql.SQLException;
+import java.sql.*;
 import java.time.LocalDateTime;
 
 public class CloseRequestDAO {
@@ -12,49 +8,43 @@ public class CloseRequestDAO {
 
     public CloseRequestDAO() {
         this.dbManager = DatabaseManager.getInstance();
-        createTables();
     }
 
-    private void createTables() {
-        String createCloseRequestsTable = """
-            CREATE TABLE IF NOT EXISTS close_requests (
-                id SERIAL PRIMARY KEY,
-                channel_id VARCHAR(20) NOT NULL,
-                requested_by VARCHAR(20) NOT NULL,
-                ticket_owner VARCHAR(20) NOT NULL,
-                reason TEXT,
-                timeout_hours INTEGER,
-                message_id VARCHAR(20),
-                status VARCHAR(20) DEFAULT 'pending',
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                responded_at TIMESTAMP,
-                UNIQUE(channel_id, status) DEFERRABLE INITIALLY DEFERRED
-            )
-            """;
+    /**
+     * Data class to hold close request details
+     */
+    public static class CloseRequestDetails {
+        public String channelId;
+        public String requestedBy;
+        public String ticketOwner;
+        public String reason;
+        public Integer timeoutHours;
+        public String status;
+        public Timestamp createdAt;
+        public Timestamp respondedAt;
+        public String respondedBy;
+        public boolean excludedFromAutoClose;
+        public String messageId;
 
-        String createAutoCloseExclusionsTable = """
-            CREATE TABLE IF NOT EXISTS autoclose_exclusions (
-                id SERIAL PRIMARY KEY,
-                channel_id VARCHAR(20) UNIQUE NOT NULL,
-                excluded_by VARCHAR(20) NOT NULL,
-                excluded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            )
-            """;
-
-        try (Connection conn = dbManager.getConnection()) {
-            conn.prepareStatement(createCloseRequestsTable).execute();
-            conn.prepareStatement(createAutoCloseExclusionsTable).execute();
-            System.out.println("✅ Close request tables created/verified");
-        } catch (SQLException e) {
-            System.err.println("❌ Failed to create close request tables: " + e.getMessage());
-            e.printStackTrace();
-        }
+        public CloseRequestDetails() {}
     }
 
+    /**
+     * Create a new close request
+     */
     public void createCloseRequest(String channelId, String requestedBy, String ticketOwner, String reason, Integer timeoutHours) {
         String query = """
-            INSERT INTO close_requests (channel_id, requested_by, ticket_owner, reason, timeout_hours, status)
-            VALUES (?, ?, ?, ?, ?, 'pending')
+            INSERT INTO close_requests (channel_id, requested_by, ticket_owner, reason, timeout_hours, status, created_at)
+            VALUES (?, ?, ?, ?, ?, 'pending', CURRENT_TIMESTAMP)
+            ON CONFLICT (channel_id) 
+            DO UPDATE SET 
+                requested_by = EXCLUDED.requested_by,
+                reason = EXCLUDED.reason,
+                timeout_hours = EXCLUDED.timeout_hours,
+                status = 'pending',
+                created_at = CURRENT_TIMESTAMP,
+                responded_at = NULL,
+                responded_by = NULL
             """;
 
         try (Connection conn = dbManager.getConnection();
@@ -67,11 +57,10 @@ public class CloseRequestDAO {
             if (timeoutHours != null) {
                 stmt.setInt(5, timeoutHours);
             } else {
-                stmt.setNull(5, java.sql.Types.INTEGER);
+                stmt.setNull(5, Types.INTEGER);
             }
 
             stmt.executeUpdate();
-            System.out.println("✅ Close request created: " + channelId);
 
         } catch (SQLException e) {
             System.err.println("❌ Failed to create close request: " + e.getMessage());
@@ -79,28 +68,76 @@ public class CloseRequestDAO {
         }
     }
 
+    /**
+     * Check if there's an active close request for a channel
+     */
     public boolean hasActiveCloseRequest(String channelId) {
-        String query = "SELECT 1 FROM close_requests WHERE channel_id = ? AND status = 'pending'";
+        String query = "SELECT COUNT(*) FROM close_requests WHERE channel_id = ? AND status = 'pending'";
 
         try (Connection conn = dbManager.getConnection();
              PreparedStatement stmt = conn.prepareStatement(query)) {
 
             stmt.setString(1, channelId);
             ResultSet rs = stmt.executeQuery();
-            return rs.next();
+
+            if (rs.next()) {
+                return rs.getInt(1) > 0;
+            }
 
         } catch (SQLException e) {
-            System.err.println("❌ Failed to check active close request: " + e.getMessage());
-            return false;
+            System.err.println("❌ Failed to check active close requests: " + e.getMessage());
+            e.printStackTrace();
         }
+
+        return false;
     }
 
-    public void updateCloseRequestMessageId(String channelId, String messageId) {
+    /**
+     * Get close request details
+     */
+    public CloseRequestDetails getCloseRequestDetails(String channelId) {
         String query = """
-            UPDATE close_requests 
-            SET message_id = ? 
+            SELECT channel_id, requested_by, ticket_owner, reason, timeout_hours, status, 
+                   created_at, responded_at, responded_by, excluded_from_autoclose, message_id
+            FROM close_requests 
             WHERE channel_id = ? AND status = 'pending'
             """;
+
+        try (Connection conn = dbManager.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(query)) {
+
+            stmt.setString(1, channelId);
+            ResultSet rs = stmt.executeQuery();
+
+            if (rs.next()) {
+                CloseRequestDetails details = new CloseRequestDetails();
+                details.channelId = rs.getString("channel_id");
+                details.requestedBy = rs.getString("requested_by");
+                details.ticketOwner = rs.getString("ticket_owner");
+                details.reason = rs.getString("reason");
+                details.timeoutHours = rs.getObject("timeout_hours", Integer.class);
+                details.status = rs.getString("status");
+                details.createdAt = rs.getTimestamp("created_at");
+                details.respondedAt = rs.getTimestamp("responded_at");
+                details.respondedBy = rs.getString("responded_by");
+                details.excludedFromAutoClose = rs.getBoolean("excluded_from_autoclose");
+                details.messageId = rs.getString("message_id");
+                return details;
+            }
+
+        } catch (SQLException e) {
+            System.err.println("❌ Failed to get close request details: " + e.getMessage());
+            e.printStackTrace();
+        }
+
+        return null;
+    }
+
+    /**
+     * Update close request with message ID
+     */
+    public void updateCloseRequestMessageId(String channelId, String messageId) {
+        String query = "UPDATE close_requests SET message_id = ? WHERE channel_id = ? AND status = 'pending'";
 
         try (Connection conn = dbManager.getConnection();
              PreparedStatement stmt = conn.prepareStatement(query)) {
@@ -111,53 +148,63 @@ public class CloseRequestDAO {
 
         } catch (SQLException e) {
             System.err.println("❌ Failed to update close request message ID: " + e.getMessage());
+            e.printStackTrace();
         }
     }
 
-    public void confirmCloseRequest(String channelId, String userId) {
+    /**
+     * Confirm close request
+     */
+    public void confirmCloseRequest(String channelId, String respondedBy) {
         String query = """
             UPDATE close_requests 
-            SET status = 'confirmed', responded_at = CURRENT_TIMESTAMP
-            WHERE channel_id = ? AND ticket_owner = ? AND status = 'pending'
+            SET status = 'confirmed', responded_at = CURRENT_TIMESTAMP, responded_by = ?
+            WHERE channel_id = ? AND status = 'pending'
             """;
 
         try (Connection conn = dbManager.getConnection();
              PreparedStatement stmt = conn.prepareStatement(query)) {
 
-            stmt.setString(1, channelId);
-            stmt.setString(2, userId);
+            stmt.setString(1, respondedBy);
+            stmt.setString(2, channelId);
             stmt.executeUpdate();
-            System.out.println("✅ Close request confirmed: " + channelId);
 
         } catch (SQLException e) {
             System.err.println("❌ Failed to confirm close request: " + e.getMessage());
+            e.printStackTrace();
         }
     }
 
-    public void denyCloseRequest(String channelId, String userId) {
+    /**
+     * Deny close request
+     */
+    public void denyCloseRequest(String channelId, String respondedBy) {
         String query = """
             UPDATE close_requests 
-            SET status = 'denied', responded_at = CURRENT_TIMESTAMP
-            WHERE channel_id = ? AND ticket_owner = ? AND status = 'pending'
+            SET status = 'denied', responded_at = CURRENT_TIMESTAMP, responded_by = ?
+            WHERE channel_id = ? AND status = 'pending'
             """;
 
         try (Connection conn = dbManager.getConnection();
              PreparedStatement stmt = conn.prepareStatement(query)) {
 
-            stmt.setString(1, channelId);
-            stmt.setString(2, userId);
+            stmt.setString(1, respondedBy);
+            stmt.setString(2, channelId);
             stmt.executeUpdate();
-            System.out.println("✅ Close request denied: " + channelId);
 
         } catch (SQLException e) {
             System.err.println("❌ Failed to deny close request: " + e.getMessage());
+            e.printStackTrace();
         }
     }
 
+    /**
+     * Auto-close request (timeout)
+     */
     public void autoCloseRequest(String channelId) {
         String query = """
             UPDATE close_requests 
-            SET status = 'auto_closed', responded_at = CURRENT_TIMESTAMP
+            SET status = 'auto_closed', responded_at = CURRENT_TIMESTAMP, responded_by = 'SYSTEM'
             WHERE channel_id = ? AND status = 'pending'
             """;
 
@@ -166,18 +213,24 @@ public class CloseRequestDAO {
 
             stmt.setString(1, channelId);
             stmt.executeUpdate();
-            System.out.println("✅ Close request auto-closed: " + channelId);
 
         } catch (SQLException e) {
             System.err.println("❌ Failed to auto-close request: " + e.getMessage());
+            e.printStackTrace();
         }
     }
 
+    /**
+     * Exclude ticket from auto-close
+     */
     public void excludeFromAutoClose(String channelId, String excludedBy) {
         String query = """
-            INSERT INTO autoclose_exclusions (channel_id, excluded_by)
-            VALUES (?, ?)
-            ON CONFLICT (channel_id) DO NOTHING
+            INSERT INTO close_requests (channel_id, requested_by, ticket_owner, reason, status, excluded_from_autoclose, created_at)
+            VALUES (?, ?, 'SYSTEM', 'Excluded from auto-close', 'excluded', TRUE, CURRENT_TIMESTAMP)
+            ON CONFLICT (channel_id)
+            DO UPDATE SET 
+                excluded_from_autoclose = TRUE,
+                status = 'excluded'
             """;
 
         try (Connection conn = dbManager.getConnection();
@@ -186,37 +239,18 @@ public class CloseRequestDAO {
             stmt.setString(1, channelId);
             stmt.setString(2, excludedBy);
             stmt.executeUpdate();
-            System.out.println("✅ Channel excluded from auto-close: " + channelId);
 
         } catch (SQLException e) {
             System.err.println("❌ Failed to exclude from auto-close: " + e.getMessage());
+            e.printStackTrace();
         }
     }
 
+    /**
+     * Check if ticket is excluded from auto-close
+     */
     public boolean isExcludedFromAutoClose(String channelId) {
-        String query = "SELECT 1 FROM autoclose_exclusions WHERE channel_id = ?";
-
-        try (Connection conn = dbManager.getConnection();
-             PreparedStatement stmt = conn.prepareStatement(query)) {
-
-            stmt.setString(1, channelId);
-            ResultSet rs = stmt.executeQuery();
-            return rs.next();
-
-        } catch (SQLException e) {
-            System.err.println("❌ Failed to check auto-close exclusion: " + e.getMessage());
-            return false;
-        }
-    }
-
-    public CloseRequestDetails getCloseRequestDetails(String channelId) {
-        String query = """
-            SELECT requested_by, reason, timeout_hours 
-            FROM close_requests 
-            WHERE channel_id = ? AND status = 'pending'
-            ORDER BY created_at DESC 
-            LIMIT 1
-            """;
+        String query = "SELECT excluded_from_autoclose FROM close_requests WHERE channel_id = ?";
 
         try (Connection conn = dbManager.getConnection();
              PreparedStatement stmt = conn.prepareStatement(query)) {
@@ -225,29 +259,39 @@ public class CloseRequestDAO {
             ResultSet rs = stmt.executeQuery();
 
             if (rs.next()) {
-                return new CloseRequestDetails(
-                        rs.getString("requested_by"),
-                        rs.getString("reason"),
-                        rs.getInt("timeout_hours") == 0 ? null : rs.getInt("timeout_hours")
-                );
+                return rs.getBoolean("excluded_from_autoclose");
             }
 
         } catch (SQLException e) {
-            System.err.println("❌ Failed to get close request details: " + e.getMessage());
+            System.err.println("❌ Failed to check auto-close exclusion: " + e.getMessage());
+            e.printStackTrace();
         }
 
-        return null;
+        return false;
     }
 
-    public static class CloseRequestDetails {
-        public final String requestedBy;
-        public final String reason;
-        public final Integer timeoutHours;
+    /**
+     * Clean up old close requests (optional maintenance method)
+     */
+    public void cleanupOldCloseRequests(int daysOld) {
+        String query = """
+            DELETE FROM close_requests 
+            WHERE status != 'pending' AND created_at < CURRENT_TIMESTAMP - INTERVAL '? days'
+            """;
 
-        public CloseRequestDetails(String requestedBy, String reason, Integer timeoutHours) {
-            this.requestedBy = requestedBy;
-            this.reason = reason;
-            this.timeoutHours = timeoutHours;
+        try (Connection conn = dbManager.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(query)) {
+
+            stmt.setInt(1, daysOld);
+            int deleted = stmt.executeUpdate();
+
+            if (deleted > 0) {
+                System.out.println("🧹 Cleaned up " + deleted + " old close requests");
+            }
+
+        } catch (SQLException e) {
+            System.err.println("❌ Failed to cleanup old close requests: " + e.getMessage());
+            e.printStackTrace();
         }
     }
 }

@@ -17,6 +17,7 @@ public class DatabaseManager {
     private DatabaseManager() {
         initializeDatabase();
         createTables();
+        runMigrations(); // Add migration step
     }
 
     public static DatabaseManager getInstance() {
@@ -99,13 +100,13 @@ public class DatabaseManager {
     }
 
     private void createTables() {
+        // Create the base tables first
         String createGuildConfigTable = """
             CREATE TABLE IF NOT EXISTS guild_configs (
                 guild_id VARCHAR(20) PRIMARY KEY,
                 category_id TEXT,
                 panel_channel_id TEXT,
                 transcript_channel_id TEXT,
-                error_log_channel_id TEXT,
                 ticket_counter INTEGER DEFAULT 0,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -138,6 +139,24 @@ public class DatabaseManager {
             )
             """;
 
+        // Add close requests table for the CloseRequestHandler
+        String createCloseRequestsTable = """
+            CREATE TABLE IF NOT EXISTS close_requests (
+                id SERIAL PRIMARY KEY,
+                channel_id VARCHAR(20) NOT NULL UNIQUE,
+                requested_by VARCHAR(20) NOT NULL,
+                ticket_owner VARCHAR(20) NOT NULL,
+                reason TEXT,
+                timeout_hours INTEGER,
+                message_id VARCHAR(20),
+                status VARCHAR(20) DEFAULT 'pending',
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                responded_at TIMESTAMP,
+                responded_by VARCHAR(20),
+                excluded_from_autoclose BOOLEAN DEFAULT FALSE
+            )
+            """;
+
         try (Connection conn = getConnection();
              Statement stmt = conn.createStatement()) {
 
@@ -166,6 +185,14 @@ public class DatabaseManager {
                 throw e;
             }
 
+            try {
+                stmt.execute(createCloseRequestsTable);
+                System.out.println("✅ close_requests table created/verified");
+            } catch (SQLException e) {
+                System.err.println("❌ Failed to create close_requests table: " + e.getMessage());
+                throw e;
+            }
+
             System.out.println("✅ Database tables initialized successfully!");
 
         } catch (SQLException e) {
@@ -174,14 +201,22 @@ public class DatabaseManager {
         }
     }
 
-    public Connection getConnection() throws SQLException {
-        return dataSource.getConnection();
-    }
+    /**
+     * Run database migrations to add new columns and update schema
+     */
+    private void runMigrations() {
+        try (Connection conn = getConnection()) {
+            System.out.println("🔄 Running database migrations...");
 
-    public void close() {
-        if (dataSource != null && !dataSource.isClosed()) {
-            dataSource.close();
-            System.out.println("Database connection pool closed.");
+            // Migration 1: Add error_log_channel_id column to guild_configs
+            migrateGuildConfigsTable(conn);
+
+            System.out.println("✅ Database migrations completed successfully!");
+
+        } catch (SQLException e) {
+            System.err.println("❌ Failed to run database migrations: " + e.getMessage());
+            e.printStackTrace();
+            // Don't throw here - let the bot continue with existing schema
         }
     }
 
@@ -213,7 +248,43 @@ public class DatabaseManager {
                     alterStmt.execute(addColumnQuery);
                     System.out.println("✅ Successfully added error_log_channel_id column to guild_configs table");
                 }
+            } else {
+                System.out.println("✅ error_log_channel_id column already exists in guild_configs table");
             }
+        }
+    }
+
+    public Connection getConnection() throws SQLException {
+        return dataSource.getConnection();
+    }
+
+    public void close() {
+        if (dataSource != null && !dataSource.isClosed()) {
+            dataSource.close();
+            System.out.println("Database connection pool closed.");
+        }
+    }
+
+    /**
+     * Test database connectivity and schema
+     */
+    public boolean testConnection() {
+        try (Connection conn = getConnection()) {
+            // Test basic connectivity
+            conn.isValid(5);
+
+            // Test if our tables exist
+            String testQuery = "SELECT COUNT(*) FROM guild_configs LIMIT 1";
+            try (PreparedStatement stmt = conn.prepareStatement(testQuery)) {
+                stmt.executeQuery();
+            }
+
+            System.out.println("✅ Database connection and schema test successful!");
+            return true;
+
+        } catch (SQLException e) {
+            System.err.println("❌ Database connection test failed: " + e.getMessage());
+            return false;
         }
     }
 }
