@@ -14,6 +14,9 @@ public class GuildConfig {
     public String errorLogChannelId; // Optional error logging channel
     public Set<String> supportRoleIds = new HashSet<>();
     public int ticketCounter = 0; // Global ticket counter that persists
+    public int cleanupTicketLogsDays = 30; // Retain closed/deleted ticket logs for N days
+    public int cleanupCloseRequestsDays = 30; // Retain processed close-requests for N days
+    public boolean transcriptHtmlEnabled = true; // Also generate HTML transcripts
 
     // Reference to DAO for database operations
     private transient GuildConfigDAO dao;

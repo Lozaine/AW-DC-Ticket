@@ -39,6 +39,18 @@ public class CommandBuilder {
                 .setMinValue(1)
                 .setMaxValue(168); // 7 days max
 
+        // Cleanup policy options
+        OptionData cleanupLogsDaysOpt = new OptionData(OptionType.INTEGER, "logs_days", "🧹 Keep closed/deleted logs for N days (default 30)", false)
+                .setMinValue(1)
+                .setMaxValue(365);
+        OptionData cleanupRequestsDaysOpt = new OptionData(OptionType.INTEGER, "requests_days", "🧹 Keep processed close-requests for N days (default 30)", false)
+                .setMinValue(1)
+                .setMaxValue(365);
+        OptionData transcriptHtmlOpt = new OptionData(OptionType.BOOLEAN, "transcript_html", "🖼️ Also generate HTML transcripts (default on)", false);
+
+        // Assignment command options
+        OptionData assignTargetOpt = new OptionData(OptionType.USER, "member", "👤 Staff member to assign this ticket to", true);
+
         return List.of(
                 // Help command - shows all available commands
                 Commands.slash("help", "📋 Display all available bot commands and ticket system features"),
@@ -55,6 +67,14 @@ public class CommandBuilder {
 
                 // Config command - view current settings
                 Commands.slash("config", "🔧 View current bot configuration and settings (Administrator required)"),
+
+                // Cleanup config command
+                Commands.slash("cleanup", "🧹 Configure automatic cleanup policies (Administrator required)")
+                        .addOptions(cleanupLogsDaysOpt, cleanupRequestsDaysOpt, transcriptHtmlOpt),
+
+                // Assignment command
+                Commands.slash("assign", "👥 Assign this ticket to a specific staff member (Staff only)")
+                        .addOptions(assignTargetOpt),
 
                 // Close request command - request user confirmation to close ticket
                 Commands.slash("closerequest", "🔒 Request the ticket owner to confirm closure (Staff only)")

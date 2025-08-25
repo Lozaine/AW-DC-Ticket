@@ -70,6 +70,8 @@ public class HelpHandler {
                         "**Transcript Generation** - Save ticket conversations\n" +
                         "**Permission System** - Role-based access control\n" +
                         "**Auto-close System** - Configurable timeout closures\n" +
+                        "**Cleanup Policies** - Automatic log/close-request cleanup\n" +
+                        "**Assignments** - Assign tickets to specific staff\n" +
                         "**Close Requests** - User confirmation system", false);
 
         // Setup Instructions

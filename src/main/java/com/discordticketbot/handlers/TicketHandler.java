@@ -269,9 +269,15 @@ public class TicketHandler {
                 String transcriptContent = TranscriptUtil.createTranscriptContent(channel, messages);
                 File transcriptFile = TranscriptUtil.saveTranscriptToFile(channel, transcriptContent);
 
+                File htmlFile = null;
+                if (config.transcriptHtmlEnabled) {
+                    String html = TranscriptUtil.createHtmlTranscript(channel, messages);
+                    htmlFile = TranscriptUtil.saveHtmlTranscriptToFile(channel, html);
+                }
+
                 TextChannel transcriptChannel = guild.getTextChannelById(config.transcriptChannelId);
                 if (transcriptChannel != null) {
-                    sendTranscriptEmbed(transcriptChannel, event, channel, messages.size(), transcriptFile);
+                    sendTranscriptEmbed(transcriptChannel, event, channel, messages.size(), transcriptFile, htmlFile);
                     event.getHook().sendMessage("✅ Transcript generated and saved to logs channel!").queue();
                 } else {
                     event.getHook().sendMessage("❌ Transcript log channel not found. Please contact an administrator.").queue();
@@ -376,7 +382,7 @@ public class TicketHandler {
         }
     }
 
-    private void sendTranscriptEmbed(TextChannel transcriptChannel, ButtonInteractionEvent event, TextChannel sourceChannel, int messageCount, File transcriptFile) {
+    private void sendTranscriptEmbed(TextChannel transcriptChannel, ButtonInteractionEvent event, TextChannel sourceChannel, int messageCount, File transcriptFile, File htmlFile) {
         EmbedBuilder transcriptEmbed = new EmbedBuilder()
                 .setTitle("📄 Ticket Transcript")
                 .addField("Ticket Channel", sourceChannel.getName(), true)
@@ -386,8 +392,11 @@ public class TicketHandler {
                 .setColor(Color.BLUE)
                 .setFooter("Transcript saved for record keeping");
 
-        transcriptChannel.sendMessageEmbeds(transcriptEmbed.build())
-                .addFiles(net.dv8tion.jda.api.utils.FileUpload.fromData(transcriptFile))
-                .queue();
+        var action = transcriptChannel.sendMessageEmbeds(transcriptEmbed.build())
+                .addFiles(net.dv8tion.jda.api.utils.FileUpload.fromData(transcriptFile));
+        if (htmlFile != null) {
+            action = action.addFiles(net.dv8tion.jda.api.utils.FileUpload.fromData(htmlFile));
+        }
+        action.queue();
     }
 }

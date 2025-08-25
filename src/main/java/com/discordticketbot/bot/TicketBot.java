@@ -13,6 +13,12 @@ import net.dv8tion.jda.api.JDABuilder;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
+
+import com.discordticketbot.database.CloseRequestDAO;
+import com.discordticketbot.database.TicketLogDAO;
 
 public class TicketBot {
     private final String botToken;
@@ -71,6 +77,9 @@ public class TicketBot {
 
         // Add shutdown hook to properly close database connections
         Runtime.getRuntime().addShutdownHook(new Thread(this::shutdown));
+
+        // Start periodic cleanup task (daily)
+        startCleanupScheduler();
     }
 
     /**
@@ -151,6 +160,33 @@ public class TicketBot {
             System.err.println("Error during shutdown: " + e.getMessage());
             e.printStackTrace();
         }
+    }
+
+    private void startCleanupScheduler() {
+        ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
+        TicketLogDAO ticketLogDAO = new TicketLogDAO();
+        CloseRequestDAO closeRequestDAO = new CloseRequestDAO();
+
+        Runnable task = () -> {
+            try {
+                for (Map.Entry<String, GuildConfig> entry : guildConfigs.entrySet()) {
+                    GuildConfig cfg = entry.getValue();
+                    if (cfg == null) continue;
+                    if (cfg.cleanupTicketLogsDays > 0) {
+                        ticketLogDAO.cleanupOldTicketLogs(cfg.cleanupTicketLogsDays);
+                    }
+                    if (cfg.cleanupCloseRequestsDays > 0) {
+                        closeRequestDAO.cleanupOldCloseRequests(cfg.cleanupCloseRequestsDays);
+                    }
+                }
+                System.out.println("🧹 Daily cleanup completed");
+            } catch (Exception e) {
+                System.err.println("❌ Cleanup task error: " + e.getMessage());
+                e.printStackTrace();
+            }
+        };
+
+        scheduler.scheduleAtFixedRate(task, 1, 24, TimeUnit.HOURS);
     }
 
     public JDA getJda() {
