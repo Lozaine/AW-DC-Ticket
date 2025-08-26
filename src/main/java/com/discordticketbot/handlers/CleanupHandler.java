@@ -43,11 +43,9 @@ public class CleanupHandler {
 
         Integer logsDays = event.getOption("logs_days") != null ? event.getOption("logs_days").getAsInt() : null;
         Integer requestsDays = event.getOption("requests_days") != null ? event.getOption("requests_days").getAsInt() : null;
-        Boolean transcriptHtml = event.getOption("transcript_html") != null ? event.getOption("transcript_html").getAsBoolean() : null;
 
         if (logsDays != null) config.cleanupTicketLogsDays = logsDays;
         if (requestsDays != null) config.cleanupCloseRequestsDays = requestsDays;
-        if (transcriptHtml != null) config.transcriptHtmlEnabled = transcriptHtml;
 
         config.save();
 
@@ -58,7 +56,7 @@ public class CleanupHandler {
             closeRequestDAO.cleanupOldCloseRequests(config.cleanupCloseRequestsDays);
         }
 
-        event.reply("✅ Cleanup policies updated. Logs: " + config.cleanupTicketLogsDays + " days, Requests: " + config.cleanupCloseRequestsDays + " days. HTML transcripts: " + (config.transcriptHtmlEnabled ? "enabled" : "disabled")).setEphemeral(true).queue();
+        event.reply("✅ Cleanup policies updated. Logs: " + config.cleanupTicketLogsDays + " days, Requests: " + config.cleanupCloseRequestsDays + " days.").setEphemeral(true).queue();
     }
 }
 

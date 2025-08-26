@@ -5,7 +5,6 @@ import com.discordticketbot.database.TicketLogDAO;
 import com.discordticketbot.utils.ErrorLogger;
 import com.discordticketbot.utils.PermissionUtil;
 import com.discordticketbot.utils.TranscriptUtil;
-import org.springframework.beans.factory.annotation.Value;
 import com.discordticketbot.utils.UserDisplayUtil;
 import com.discordticketbot.utils.TimestampUtil;
 import net.dv8tion.jda.api.EmbedBuilder;
@@ -35,8 +34,6 @@ public class TicketHandler {
     private final TicketLogDAO ticketLogDAO;
     private final ErrorLogger errorLogger;
     private static final Pattern TICKET_PATTERN = Pattern.compile("^ticket-(.+)-(\\d{3})$");
-    @Value("${app.base-url:https://aw-dc-ticket-production.up.railway.app}")
-    private String appBaseUrl;
 
     public TicketHandler(Map<String, GuildConfig> guildConfigs) {
         this.guildConfigs = guildConfigs;
@@ -272,27 +269,10 @@ public class TicketHandler {
                 String transcriptContent = TranscriptUtil.createTranscriptContent(channel, messages);
                 File transcriptFile = TranscriptUtil.saveTranscriptToFile(channel, transcriptContent);
 
-                File htmlFile = null;
-                String directUrl = null;
-                if (config.transcriptHtmlEnabled) {
-                    String html = TranscriptUtil.createHtmlTranscript(channel, messages);
-                    htmlFile = TranscriptUtil.saveHtmlTranscriptToFile(channel, html);
-                    if (htmlFile != null) {
-                        String base = appBaseUrl.endsWith("/") ? appBaseUrl.substring(0, appBaseUrl.length() - 1) : appBaseUrl;
-                        directUrl = base + "/transcripts/" + htmlFile.getName();
-                    }
-                }
-
                 TextChannel transcriptChannel = guild.getTextChannelById(config.transcriptChannelId);
                 if (transcriptChannel != null) {
-                    sendTranscriptEmbed(transcriptChannel, event, channel, messages.size(), transcriptFile, htmlFile, directUrl);
-                    if (directUrl != null) {
-                        event.getHook().sendMessage("✅ Transcript generated and saved to logs channel!")
-                                .setActionRow(Button.link(directUrl, "Open HTML Transcript"))
-                                .queue();
-                    } else {
-                        event.getHook().sendMessage("✅ Transcript generated and saved to logs channel!").queue();
-                    }
+                    sendTranscriptEmbed(transcriptChannel, event, channel, messages.size(), transcriptFile, null, null);
+                    event.getHook().sendMessage("✅ Transcript generated and saved to logs channel!").queue();
                 } else {
                     event.getHook().sendMessage("❌ Transcript log channel not found. Please contact an administrator.").queue();
                 }
@@ -406,18 +386,8 @@ public class TicketHandler {
                 .setColor(Color.BLUE)
                 .setFooter("Transcript saved for record keeping");
 
-        if (directUrl != null) {
-            transcriptEmbed.addField("Direct Link", "[Open HTML Transcript](" + directUrl + ")", false);
-        }
-
-        var action = transcriptChannel.sendMessageEmbeds(transcriptEmbed.build())
-                .addFiles(net.dv8tion.jda.api.utils.FileUpload.fromData(transcriptFile));
-        if (htmlFile != null) {
-            action = action.addFiles(net.dv8tion.jda.api.utils.FileUpload.fromData(htmlFile));
-        }
-        if (directUrl != null) {
-            action = action.setActionRow(Button.link(directUrl, "Open HTML Transcript"));
-        }
-        action.queue();
+        transcriptChannel.sendMessageEmbeds(transcriptEmbed.build())
+                .addFiles(net.dv8tion.jda.api.utils.FileUpload.fromData(transcriptFile))
+                .queue();
     }
 }

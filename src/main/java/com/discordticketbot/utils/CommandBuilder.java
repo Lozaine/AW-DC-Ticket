@@ -46,7 +46,6 @@ public class CommandBuilder {
         OptionData cleanupRequestsDaysOpt = new OptionData(OptionType.INTEGER, "requests_days", "🧹 Keep processed close-requests for N days (default 30)", false)
                 .setMinValue(1)
                 .setMaxValue(365);
-        OptionData transcriptHtmlOpt = new OptionData(OptionType.BOOLEAN, "transcript_html", "🖼️ Also generate HTML transcripts (default on)", false);
 
         // Assignment command options
         OptionData assignTargetOpt = new OptionData(OptionType.USER, "member", "👤 Staff member to assign this ticket to", true);
@@ -70,7 +69,7 @@ public class CommandBuilder {
 
                 // Cleanup config command
                 Commands.slash("cleanup", "🧹 Configure automatic cleanup policies (Administrator required)")
-                        .addOptions(cleanupLogsDaysOpt, cleanupRequestsDaysOpt, transcriptHtmlOpt),
+                        .addOptions(cleanupLogsDaysOpt, cleanupRequestsDaysOpt),
 
                 // Assignment command
                 Commands.slash("assign", "👥 Assign this ticket to a specific staff member (Staff only)")
