@@ -9,6 +9,7 @@
 ### 1) Automatic Ticket Cleanup
 - Daily background task cleans up old records based on per-guild settings.
 - Admins can configure retention using `/cleanup`:
+<<<<<<< HEAD
   - logs_days (default 30): retain closed/deleted ticket logs
   - requests_days (default 30): retain processed close-requests
   - transcript_html (default true): toggle HTML transcript generation
@@ -22,6 +23,21 @@ Implementation:
   - cleanupTicketLogsDays
   - cleanupCloseRequestsDays
   - transcriptHtmlEnabled
+=======
+    - logs_days (default 30): retain closed/deleted ticket logs
+    - requests_days (default 30): retain processed close-requests
+    - transcript_html (default true): toggle HTML transcript generation
+
+Implementation:
+- TicketBot.startCleanupScheduler() runs a daily job invoking:
+    - TicketLogDAO.cleanupOldTicketLogs(days)
+    - CloseRequestDAO.cleanupOldCloseRequests(days)
+- Command handler: CleanupHandler (registered in CommandListener)
+- Config stored per guild in GuildConfig:
+    - cleanupTicketLogsDays
+    - cleanupCloseRequestsDays
+    - transcriptHtmlEnabled
+>>>>>>> 166b6142724c6dc4ee4347bbb233938dc7e83b61
 
 ### 2) Enhanced Transcripts
 - HTML transcripts with styled layout, author tags, timestamps, embeds, reactions, attachments, and close-request details.
@@ -59,6 +75,12 @@ Implementation:
 ## Verification
 - Build: mvn -DskipTests package should succeed
 - Smoke tests:
+<<<<<<< HEAD
   - Run `/cleanup transcript_html:true`, generate transcript -> expect both TXT and HTML
   - Run `/assign @Staff` inside a ticket -> assignee gains access and embed posts
   - Wait for daily cleanup or run `/cleanup logs_days:30 requests_days:30` to trigger immediate cleanups
+=======
+    - Run `/cleanup transcript_html:true`, generate transcript -> expect both TXT and HTML
+    - Run `/assign @Staff` inside a ticket -> assignee gains access and embed posts
+    - Wait for daily cleanup or run `/cleanup logs_days:30 requests_days:30` to trigger immediate cleanups
+>>>>>>> 166b6142724c6dc4ee4347bbb233938dc7e83b61
