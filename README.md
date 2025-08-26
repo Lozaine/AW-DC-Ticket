@@ -475,4 +475,4 @@ For issues and questions:
 
 **Note**: This bot requires Administrator permission and a PostgreSQL database to function properly due to the complex permission management, dynamic channel creation, and persistent data storage features required for a robust ticket system.
 
-**Version**: 1.2.0 - Enhanced with advanced ticket management, statistics, assignment system, and comprehensive database logging.
+**Version**: 1.3.0 - Enhanced with advanced ticket management, statistics, assignment system, and comprehensive database logging.
