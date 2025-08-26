@@ -7,6 +7,7 @@ import com.discordticketbot.listeners.CommandListener;
 import com.discordticketbot.listeners.ButtonListener;
 import com.discordticketbot.listeners.ReadyListener;
 import com.discordticketbot.listeners.ModalListener; // Import ModalListener
+import com.discordticketbot.web.TranscriptWebController;
 import com.discordticketbot.utils.CommandDiagnosticUtil;
 import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.JDABuilder;
@@ -55,6 +56,9 @@ public class TicketBot {
     public void start() throws Exception {
         // Load existing guild configurations from database
         loadGuildConfigsFromDatabase();
+
+        // Start lightweight HTTP server for serving transcripts (Railway-compatible)
+        TranscriptWebController.startIfNeeded();
 
         jda = JDABuilder.createDefault(botToken)
                 .addEventListeners(
