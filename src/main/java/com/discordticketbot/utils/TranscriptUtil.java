@@ -449,4 +449,124 @@ public class TranscriptUtil {
         String pre = "KMGTPE".charAt(exp - 1) + "";
         return String.format("%.1f %sB", bytes / Math.pow(1024, exp), pre);
     }
+
+    /**
+     * Serves an HTML transcript file via a simple web server and returns a URL.
+     * This creates a temporary web server to serve the HTML file.
+     */
+    public static String serveHtmlTranscript(File htmlFile, String channelName) {
+        try {
+            // Create a simple HTTP server to serve the HTML file
+            int port = findAvailablePort(8080, 8090);
+
+            // Start a simple HTTP server in a separate thread
+            Thread serverThread = new Thread(() -> {
+                try {
+                    SimpleHttpServer server = new SimpleHttpServer(port, htmlFile);
+                    server.start();
+
+                    // Keep the server running for a reasonable time (e.g., 1 hour)
+                    Thread.sleep(3600000); // 1 hour
+                    server.stop();
+                } catch (Exception e) {
+                    System.err.println("Error running HTTP server: " + e.getMessage());
+                }
+            });
+            serverThread.setDaemon(true);
+            serverThread.start();
+
+            // Return the URL
+            return "http://localhost:" + port + "/transcript";
+
+        } catch (Exception e) {
+            System.err.println("Failed to serve HTML transcript: " + e.getMessage());
+            // Fallback: return a file:// URL (less ideal but functional)
+            return "file://" + htmlFile.getAbsolutePath().replace("\\", "/");
+        }
+    }
+
+    /**
+     * Find an available port in the given range.
+     */
+    private static int findAvailablePort(int startPort, int endPort) {
+        for (int port = startPort; port <= endPort; port++) {
+            try (java.net.ServerSocket serverSocket = new java.net.ServerSocket(port)) {
+                return port;
+            } catch (Exception e) {
+                // Port is in use, try next one
+            }
+        }
+        return 8080; // Fallback
+    }
+
+    /**
+     * Simple HTTP server to serve HTML transcripts.
+     */
+    private static class SimpleHttpServer {
+        private final int port;
+        private final File htmlFile;
+        private java.net.ServerSocket serverSocket;
+        private boolean running = false;
+
+        public SimpleHttpServer(int port, File htmlFile) {
+            this.port = port;
+            this.htmlFile = htmlFile;
+        }
+
+        public void start() throws Exception {
+            serverSocket = new java.net.ServerSocket(port);
+            running = true;
+            System.out.println("✅ HTML transcript server started on port " + port);
+
+            while (running) {
+                try (java.net.Socket clientSocket = serverSocket.accept()) {
+                    handleRequest(clientSocket);
+                } catch (Exception e) {
+                    if (running) {
+                        System.err.println("Error handling request: " + e.getMessage());
+                    }
+                }
+            }
+        }
+
+        public void stop() {
+            running = false;
+            try {
+                if (serverSocket != null && !serverSocket.isClosed()) {
+                    serverSocket.close();
+                }
+            } catch (Exception e) {
+                System.err.println("Error stopping server: " + e.getMessage());
+            }
+        }
+
+        private void handleRequest(java.net.Socket clientSocket) throws Exception {
+            try (java.io.OutputStream out = clientSocket.getOutputStream();
+                 java.io.BufferedReader in = new java.io.BufferedReader(
+                         new java.io.InputStreamReader(clientSocket.getInputStream()))) {
+
+                // Read the first line of the request
+                String requestLine = in.readLine();
+                if (requestLine == null) return;
+
+                // Simple response
+                String response = "HTTP/1.1 200 OK\r\n" +
+                        "Content-Type: text/html; charset=UTF-8\r\n" +
+                        "Content-Length: " + htmlFile.length() + "\r\n" +
+                        "Access-Control-Allow-Origin: *\r\n" +
+                        "\r\n";
+
+                out.write(response.getBytes());
+
+                // Send the HTML file content
+                try (java.io.FileInputStream fis = new java.io.FileInputStream(htmlFile)) {
+                    byte[] buffer = new byte[1024];
+                    int bytesRead;
+                    while ((bytesRead = fis.read(buffer)) != -1) {
+                        out.write(buffer, 0, bytesRead);
+                    }
+                }
+            }
+        }
+    }
 }
