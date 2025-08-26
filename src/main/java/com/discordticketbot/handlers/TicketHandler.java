@@ -309,11 +309,6 @@ public class TicketHandler {
 
                 // Create a simple web server to serve the HTML file
                 String htmlUrl = TranscriptUtil.serveHtmlTranscript(htmlFile, channel.getName());
-<<<<<<< HEAD
-                
-=======
-
->>>>>>> 166b6142724c6dc4ee4347bbb233938dc7e83b61
                 // Send the HTML link to the user
                 EmbedBuilder htmlEmbed = new EmbedBuilder()
                         .setTitle("🔗 HTML Transcript Generated")
