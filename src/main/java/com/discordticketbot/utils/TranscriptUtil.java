@@ -15,10 +15,6 @@ import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -31,10 +27,6 @@ public class TranscriptUtil {
     // Pattern to match Discord timestamp format <t:timestamp:format>
     private static final Pattern DISCORD_TIMESTAMP_PATTERN = Pattern.compile("<t:(\\d+):[FfDdTtRr]>");
     private static final DateTimeFormatter TRANSCRIPT_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
-
-    // Server management
-    private static final ConcurrentHashMap<String, SimpleHttpServer> activeServers = new ConcurrentHashMap<>();
-    private static final ScheduledExecutorService serverCleanupExecutor = Executors.newSingleThreadScheduledExecutor();
 
     /**
      * Creates a plain text transcript content from channel messages.
@@ -143,41 +135,34 @@ public class TranscriptUtil {
         // HTML header and CSS styles
         html.append("<!DOCTYPE html>\n<html>\n<head>\n");
         html.append("<meta charset='UTF-8'>\n");
-        html.append("<meta name='viewport' content='width=device-width, initial-scale=1.0'>\n");
-        html.append("<title>Ticket Transcript - ").append(escapeHtml(channel.getName())).append("</title>\n");
+        html.append("<title>Ticket Transcript - ").append(channel.getName()).append("</title>\n");
         html.append("<style>\n");
-        html.append("body { font-family: 'Segoe UI', Arial, sans-serif; background: #36393f; color: #dcddde; margin: 0; padding: 20px; line-height: 1.6; }\n");
-        html.append(".container { max-width: 1000px; margin: 0 auto; }\n");
-        html.append(".header { background: #2f3136; padding: 20px; border-radius: 8px; margin-bottom: 20px; box-shadow: 0 2px 10px rgba(0,0,0,0.2); }\n");
-        html.append(".close-info { background: #5865f2; padding: 15px; border-radius: 8px; margin-bottom: 20px; box-shadow: 0 2px 10px rgba(0,0,0,0.2); }\n");
-        html.append(".message { margin-bottom: 15px; padding: 10px; background: #40444b; border-radius: 8px; box-shadow: 0 1px 5px rgba(0,0,0,0.1); }\n");
-        html.append(".author { font-weight: bold; color: #ffffff; margin-bottom: 5px; display: flex; align-items: center; gap: 8px; }\n");
-        html.append(".timestamp { color: #72767d; font-size: 12px; }\n");
-        html.append(".content { margin-top: 5px; line-height: 1.4; word-wrap: break-word; }\n");
-        html.append(".bot-tag { background: #5865f2; color: white; padding: 2px 6px; border-radius: 3px; font-size: 10px; font-weight: normal; }\n");
-        html.append(".embed { border-left: 4px solid #5865f2; padding: 10px; margin: 10px 0; background: #2f3136; border-radius: 4px; }\n");
+        html.append("body { font-family: 'Segoe UI', Arial, sans-serif; background: #36393f; color: #dcddde; margin: 0; padding: 20px; }\n");
+        html.append(".header { background: #2f3136; padding: 20px; border-radius: 8px; margin-bottom: 20px; }\n");
+        html.append(".close-info { background: #5865f2; padding: 15px; border-radius: 8px; margin-bottom: 20px; }\n");
+        html.append(".message { margin-bottom: 15px; padding: 10px; background: #40444b; border-radius: 8px; }\n");
+        html.append(".author { font-weight: bold; color: #ffffff; margin-bottom: 5px; }\n");
+        html.append(".timestamp { color: #72767d; font-size: 12px; margin-left: 10px; }\n");
+        html.append(".content { margin-top: 5px; line-height: 1.4; }\n");
+        html.append(".bot-tag { background: #5865f2; color: white; padding: 2px 4px; border-radius: 3px; font-size: 10px; }\n");
+        html.append(".embed { border-left: 4px solid #5865f2; padding: 10px; margin: 10px 0; background: #2f3136; }\n");
         html.append(".embed-close { border-left: 4px solid #f23c43; }\n");
         html.append(".embed-open { border-left: 4px solid #57f287; }\n");
-        html.append(".attachment { color: #00b0f4; text-decoration: none; display: inline-block; padding: 5px 10px; background: #2f3136; border-radius: 4px; margin: 5px 0; }\n");
-        html.append(".attachment:hover { background: #36393f; }\n");
+        html.append(".attachment { color: #00b0f4; text-decoration: underline; }\n");
         html.append(".close-reason { background: #f23c43; padding: 8px; border-radius: 4px; margin: 5px 0; }\n");
-        html.append(".timeout-info { background: #faa61a; color: #000; padding: 8px; border-radius: 4px; margin: 5px 0; }\n");
-        html.append(".reactions { margin-top: 10px; }\n");
-        html.append(".reaction { background: #2f3136; padding: 4px 8px; border-radius: 12px; display: inline-block; margin-right: 5px; font-size: 12px; }\n");
-        html.append("@media (max-width: 768px) { body { padding: 10px; } .container { padding: 0; } }\n");
+        html.append(".timeout-info { background: #faa61a; padding: 8px; border-radius: 4px; margin: 5px 0; }\n");
         html.append("</style>\n");
         html.append("</head>\n<body>\n");
-        html.append("<div class='container'>\n");
 
         // Header
         html.append("<div class='header'>\n");
-        html.append("<h1>🎫 Ticket Transcript</h1>\n");
-        html.append("<p><strong>Channel:</strong> #").append(escapeHtml(channel.getName())).append(" (").append(channel.getId()).append(")</p>\n");
-        html.append("<p><strong>Guild:</strong> ").append(escapeHtml(channel.getGuild().getName())).append("</p>\n");
+        html.append("<h1>Ticket Transcript</h1>\n");
+        html.append("<p><strong>Channel:</strong> ").append(channel.getName()).append(" (").append(channel.getId()).append(")</p>\n");
+        html.append("<p><strong>Guild:</strong> ").append(channel.getGuild().getName()).append("</p>\n");
         html.append("<p><strong>Generated:</strong> ").append(LocalDateTime.now(TIMEZONE_OFFSET).format(TRANSCRIPT_FORMATTER)).append(TIMEZONE_SUFFIX).append("</p>\n");
         html.append("<p><strong>Total Messages:</strong> ").append(sortedMessages.size()).append("</p>\n");
         if (channel.getTopic() != null && !channel.getTopic().isEmpty()) {
-            html.append("<p><strong>Ticket Owner:</strong> &lt;@").append(escapeHtml(channel.getTopic())).append("&gt;</p>\n");
+            html.append("<p><strong>Ticket Owner:</strong> &lt;@").append(channel.getTopic()).append("&gt;</p>\n");
         }
         html.append("</div>\n\n");
 
@@ -190,8 +175,7 @@ public class TranscriptUtil {
         // Messages
         for (Message message : sortedMessages) {
             html.append("<div class='message'>\n");
-            html.append("<div class='author'>");
-            html.append("<span>").append(escapeHtml(message.getAuthor().getName())).append("</span>");
+            html.append("<div class='author'>").append(escapeHtml(message.getAuthor().getName()));
 
             if (message.getAuthor().isBot()) {
                 html.append(" <span class='bot-tag'>BOT</span>");
@@ -226,7 +210,7 @@ public class TranscriptUtil {
                     html.append("<strong>").append(escapeHtml(embed.getTitle())).append("</strong><br>\n");
                 }
                 if (embed.getDescription() != null) {
-                    String description = convertDiscordTimestamps(escapeHtml(embed.getDescription()));
+                    String description = escapeHtml(embed.getDescription());
                     // Remove "Please choose an action:" from embed descriptions
                     description = description.replaceAll("Please choose an action:", "").trim();
                     if (!description.isEmpty()) {
@@ -238,7 +222,7 @@ public class TranscriptUtil {
                 for (var field : embed.getFields()) {
                     if (field.getName() != null && field.getValue() != null) {
                         String fieldName = field.getName();
-                        String fieldValue = convertDiscordTimestamps(field.getValue());
+                        String fieldValue = field.getValue();
 
                         if (fieldName.contains("Timeout") || fieldName.contains("Auto")) {
                             html.append("<div class='timeout-info'>");
@@ -266,25 +250,13 @@ public class TranscriptUtil {
                 html.append(" (").append(getReadableFileSize(attachment.getSize())).append(")");
                 html.append("</a></div>\n");
             }
-
-            if (!message.getReactions().isEmpty()) {
-                html.append("<div class='reactions'>");
-                for (MessageReaction reaction : message.getReactions()) {
-                    html.append("<span class='reaction'>");
-                    html.append(escapeHtml(reaction.getEmoji().getName())).append(" ").append(reaction.getCount());
-                    html.append("</span>");
-                }
-                html.append("</div>\n");
-            }
             html.append("</div>\n\n");
         }
 
         // Footer
         html.append("<div class='header'>\n");
-        html.append("<p><em>Generated by Discord Ticket Bot System</em></p>\n");
-        html.append("<p><small>This transcript will be available for viewing for a limited time.</small></p>\n");
+        html.append("<p><em>Generated by Discord Ticket Bot</em></p>\n");
         html.append("</div>\n");
-        html.append("</div>\n"); // Close container
         html.append("</body>\n</html>");
 
         return html.toString();
@@ -301,198 +273,18 @@ public class TranscriptUtil {
 
         String timestamp = LocalDateTime.now(TIMEZONE_OFFSET).format(DateTimeFormatter.ofPattern("yyyy-MM-dd_HH-mm-ss"));
         String filename = String.format("%s_%s_%s.html",
-                channel.getName().replaceAll("[^a-zA-Z0-9-_]", "_"), // Sanitize filename
+                channel.getName(),
                 channel.getId(),
                 timestamp);
 
         File transcriptFile = new File(transcriptsDir, filename);
 
-        try (FileWriter writer = new FileWriter(transcriptFile, java.nio.charset.StandardCharsets.UTF_8)) {
+        try (FileWriter writer = new FileWriter(transcriptFile)) {
             writer.write(htmlContent);
         }
 
         System.out.println("✅ HTML transcript saved: " + transcriptFile.getAbsolutePath());
         return transcriptFile;
-    }
-
-    /**
-     * Serves an HTML transcript file via HTTP server and returns the access URL.
-     * This method creates or reuses an HTTP server for serving transcript files.
-     * The server automatically shuts down after the specified timeout or can be manually stopped.
-     */
-    public static String serveHtmlTranscript(File htmlFile, String channelName) {
-        return serveHtmlTranscript(htmlFile, channelName, 2, TimeUnit.HOURS);
-    }
-
-    /**
-     * Serves an HTML transcript file via HTTP server with custom timeout.
-     * 
-     * @param htmlFile The HTML transcript file to serve
-     * @param channelName The channel name for identification
-     * @param timeout The timeout value
-     * @param timeUnit The time unit for the timeout
-     * @return The URL to access the transcript
-     */
-    public static String serveHtmlTranscript(File htmlFile, String channelName, long timeout, TimeUnit timeUnit) {
-        String serverId = "transcript-" + channelName + "-" + System.currentTimeMillis();
-        
-        try {
-            // Stop any existing server for this channel (cleanup)
-            String existingKey = activeServers.keySet().stream()
-                    .filter(key -> key.contains(channelName))
-                    .findFirst()
-                    .orElse(null);
-            
-            if (existingKey != null) {
-                SimpleHttpServer existingServer = activeServers.remove(existingKey);
-                if (existingServer != null) {
-                    existingServer.stop();
-                    System.out.println("🧹 Stopped existing server for channel: " + channelName);
-                }
-            }
-
-            // Find an available port
-            int port = findAvailablePort();
-            if (port == -1) {
-                throw new IOException("No available ports found");
-            }
-
-            // Create and start the server
-            SimpleHttpServer server = new SimpleHttpServer(port, htmlFile, channelName);
-            
-            // Start server in background thread
-            Thread serverThread = new Thread(() -> {
-                try {
-                    server.start();
-                } catch (Exception e) {
-                    System.err.println("❌ Error running HTTP server for " + channelName + ": " + e.getMessage());
-                    activeServers.remove(serverId);
-                }
-            });
-            serverThread.setDaemon(true);
-            serverThread.start();
-
-            // Wait for server to start
-            int attempts = 0;
-            while (!server.isRunning() && attempts < 50) {
-                Thread.sleep(100);
-                attempts++;
-            }
-
-            if (!server.isRunning()) {
-                throw new IOException("Server failed to start within timeout");
-            }
-
-            activeServers.put(serverId, server);
-
-            // Schedule automatic shutdown after the specified timeout
-            if (timeout > 0) {
-                serverCleanupExecutor.schedule(() -> {
-                    SimpleHttpServer serverToStop = activeServers.remove(serverId);
-                    if (serverToStop != null) {
-                        serverToStop.stop();
-                        System.out.println("🕐 Auto-stopped transcript server for: " + channelName + 
-                            " (" + timeout + " " + timeUnit.toString().toLowerCase() + " timeout)");
-                    }
-                }, timeout, timeUnit);
-                
-                System.out.println("⏰ Auto-shutdown scheduled for " + channelName + " in " + timeout + " " + timeUnit.toString().toLowerCase());
-            } else {
-                System.out.println("♾️ No auto-shutdown scheduled for " + channelName + " (manual stop required)");
-            }
-
-            // Get the actual bound port
-            int boundPort = server.getBoundPort();
-            String host = getAccessibleHostAddress();
-            
-            String url = "http://" + host + ":" + boundPort + "/transcript";
-            System.out.println("✅ Transcript server started for " + channelName + " at: " + url);
-            
-            return url;
-
-        } catch (Exception e) {
-            System.err.println("❌ Failed to serve HTML transcript for " + channelName + ": " + e.getMessage());
-            // Clean up on failure
-            activeServers.remove(serverId);
-            // Return file URL as fallback
-            return "file://" + htmlFile.getAbsolutePath().replace("\\", "/");
-        }
-    }
-
-    /**
-     * Serves an HTML transcript with no automatic timeout (manual stop required).
-     */
-    public static String serveHtmlTranscriptPermanent(File htmlFile, String channelName) {
-        return serveHtmlTranscript(htmlFile, channelName, 0, TimeUnit.SECONDS);
-    }
-
-    /**
-     * Stops all active transcript servers (cleanup method).
-     */
-    public static void stopAllTranscriptServers() {
-        System.out.println("🧹 Stopping all active transcript servers...");
-        activeServers.values().forEach(SimpleHttpServer::stop);
-        activeServers.clear();
-        System.out.println("✅ All transcript servers stopped");
-    }
-
-    /**
-     * Get the count of active transcript servers.
-     */
-    public static int getActiveServerCount() {
-        return activeServers.size();
-    }
-
-    /**
-     * Finds an available port for the HTTP server.
-     */
-    private static int findAvailablePort() {
-        int[] preferredPorts = {8080, 8081, 8082, 8083, 8084, 3000, 3001, 3002, 3003, 3004};
-        
-        // Try preferred ports first
-        for (int port : preferredPorts) {
-            try (java.net.ServerSocket socket = new java.net.ServerSocket(port)) {
-                return port;
-            } catch (IOException ignored) {
-                // Port is busy, try next
-            }
-        }
-        
-        // If no preferred port is available, use system-assigned port
-        try (java.net.ServerSocket socket = new java.net.ServerSocket(0)) {
-            return socket.getLocalPort();
-        } catch (IOException e) {
-            System.err.println("❌ Failed to find any available port: " + e.getMessage());
-            return -1;
-        }
-    }
-
-    /**
-     * Gets an accessible host address for external connections.
-     */
-    private static String getAccessibleHostAddress() {
-        try {
-            // Try to find a local network interface
-            java.util.Enumeration<java.net.NetworkInterface> interfaces = java.net.NetworkInterface.getNetworkInterfaces();
-            while (interfaces.hasMoreElements()) {
-                java.net.NetworkInterface networkInterface = interfaces.nextElement();
-                if (!networkInterface.isUp() || networkInterface.isLoopback()) continue;
-                
-                java.util.Enumeration<java.net.InetAddress> addresses = networkInterface.getInetAddresses();
-                while (addresses.hasMoreElements()) {
-                    java.net.InetAddress address = addresses.nextElement();
-                    if (address instanceof java.net.Inet4Address && address.isSiteLocalAddress()) {
-                        return address.getHostAddress();
-                    }
-                }
-            }
-            
-            // Fallback to local host address
-            return java.net.InetAddress.getLocalHost().getHostAddress();
-        } catch (Exception e) {
-            System.err.println("⚠️ Failed to determine accessible host address, using localhost: " + e.getMessage());
-            return "127.0.0.1";
-        }
     }
 
     /**
@@ -658,71 +450,112 @@ public class TranscriptUtil {
     }
 
     /**
-     * Enhanced HTTP server for serving HTML transcripts.
-     * Includes better error handling, logging, and connection management.
+     * Determine the server port, preferring the standard PORT env (e.g., Railway).
+     */
+    private static int getServerPort() {
+        String envPort = System.getenv("PORT");
+        if (envPort != null) {
+            try {
+                return Integer.parseInt(envPort);
+            } catch (NumberFormatException ignored) {
+                // fall through
+            }
+        }
+        return 3000;
+    }
+
+    /**
+     * Return a configured base URL/domain if present in environment variables.
+     */
+    private static String getConfiguredBaseUrl() {
+        String[] keys = new String[] { "PUBLIC_BASE_URL", "BASE_URL", "RAILWAY_PUBLIC_DOMAIN", "RAILWAY_STATIC_URL" };
+        for (String key : keys) {
+            String val = System.getenv(key);
+            if (val != null && !val.trim().isEmpty()) {
+                return val.trim();
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Build a public URL for accessing the served transcript.
+     * Prefers PUBLIC_BASE_URL/BASE_URL/RAILWAY_PUBLIC_DOMAIN if available.
+     */
+    private static String buildPublicUrl(int port, String path) {
+        String base = getConfiguredBaseUrl();
+        if (base != null && !base.isEmpty()) {
+            if (!base.startsWith("http://") && !base.startsWith("https://")) {
+                base = "https://" + base;
+            }
+            if (base.endsWith("/")) {
+                base = base.substring(0, base.length() - 1);
+            }
+            return base + path;
+        }
+        return "http://localhost:" + port + path;
+    }
+
+    /**
+     * Serves an HTML transcript file via a simple web server and returns a URL.
+     * This creates a temporary web server to serve the HTML file.
+     */
+    public static String serveHtmlTranscript(File htmlFile, String channelName) {
+        try {
+            // Create a simple HTTP server to serve the HTML file
+            int port = getServerPort();
+            
+            // Start a simple HTTP server in a separate thread
+            Thread serverThread = new Thread(() -> {
+                try {
+                    SimpleHttpServer server = new SimpleHttpServer(port, htmlFile);
+                    server.start();
+                    
+                    // Keep the server running for a reasonable time (e.g., 1 hour)
+                    Thread.sleep(3600000); // 1 hour
+                    server.stop();
+                } catch (Exception e) {
+                    System.err.println("Error running HTTP server: " + e.getMessage());
+                }
+            });
+            serverThread.setDaemon(true);
+            serverThread.start();
+            
+            // Return the URL using public domain if configured (e.g., Railway)
+            return buildPublicUrl(port, "/transcript");
+            
+        } catch (Exception e) {
+            System.err.println("Failed to serve HTML transcript: " + e.getMessage());
+            // Fallback: return a file:// URL (less ideal but functional)
+            return "file://" + htmlFile.getAbsolutePath().replace("\\", "/");
+        }
+    }
+
+    /**
+     * Simple HTTP server to serve HTML transcripts.
      */
     private static class SimpleHttpServer {
         private final int port;
         private final File htmlFile;
-        private final String channelName;
         private java.net.ServerSocket serverSocket;
-        private volatile boolean running = false;
-        private int boundPort = -1;
+        private boolean running = false;
 
-        public SimpleHttpServer(int port, File htmlFile, String channelName) {
+        public SimpleHttpServer(int port, File htmlFile) {
             this.port = port;
             this.htmlFile = htmlFile;
-            this.channelName = channelName;
-        }
-
-        public int getBoundPort() {
-            return boundPort;
-        }
-
-        public boolean isRunning() {
-            return running && serverSocket != null && !serverSocket.isClosed();
-        }
-
-        public String getChannelName() {
-            return channelName;
         }
 
         public void start() throws Exception {
-            try {
-                // Try to bind to all interfaces first (0.0.0.0)
-                serverSocket = new java.net.ServerSocket(port, 50, java.net.InetAddress.getByName("0.0.0.0"));
-                boundPort = serverSocket.getLocalPort();
-                System.out.println("🌐 Transcript server bound to 0.0.0.0:" + boundPort + " for channel: " + channelName);
-            } catch (java.net.BindException bindEx) {
-                System.err.println("⚠️ Bind failed on 0.0.0.0:" + port + " for " + channelName + ", trying localhost");
-                try {
-                    // Fallback to localhost
-                    serverSocket = new java.net.ServerSocket(port, 50, java.net.InetAddress.getByName("127.0.0.1"));
-                    boundPort = serverSocket.getLocalPort();
-                    System.out.println("🏠 Transcript server bound to 127.0.0.1:" + boundPort + " for channel: " + channelName);
-                } catch (Exception innerEx) {
-                    // Last resort: use system-assigned port
-                    serverSocket = new java.net.ServerSocket(0);
-                    boundPort = serverSocket.getLocalPort();
-                    System.out.println("🎲 Transcript server bound to ephemeral port " + boundPort + " for channel: " + channelName);
-                }
-            }
-
+            serverSocket = new java.net.ServerSocket(port);
             running = true;
-            System.out.println("✅ Transcript server started successfully for " + channelName + " at port " + boundPort);
+            System.out.println("✅ HTML transcript server started on port " + port);
 
-            // Accept connections
             while (running) {
                 try (java.net.Socket clientSocket = serverSocket.accept()) {
                     handleRequest(clientSocket);
-                } catch (java.net.SocketException e) {
-                    if (running) {
-                        System.err.println("⚠️ Socket error for " + channelName + ": " + e.getMessage());
-                    }
-                    // If server is being stopped, this is expected
                 } catch (Exception e) {
                     if (running) {
-                        System.err.println("❌ Error handling request for " + channelName + ": " + e.getMessage());
+                        System.err.println("Error handling request: " + e.getMessage());
                     }
                 }
             }
@@ -733,127 +566,76 @@ public class TranscriptUtil {
             try {
                 if (serverSocket != null && !serverSocket.isClosed()) {
                     serverSocket.close();
-                    System.out.println("🛑 Transcript server stopped for: " + channelName);
                 }
             } catch (Exception e) {
-                System.err.println("❌ Error stopping server for " + channelName + ": " + e.getMessage());
+                System.err.println("Error stopping server: " + e.getMessage());
             }
         }
 
         private void handleRequest(java.net.Socket clientSocket) throws Exception {
-            clientSocket.setSoTimeout(10000); // 10 second timeout
-            
             try (java.io.OutputStream out = clientSocket.getOutputStream();
                  java.io.BufferedReader in = new java.io.BufferedReader(
                      new java.io.InputStreamReader(clientSocket.getInputStream()))) {
 
-                // Read the request line
+                // Read the first line of the request
                 String requestLine = in.readLine();
-                if (requestLine == null || requestLine.trim().isEmpty()) {
-                    return;
-                }
+                if (requestLine == null) return;
 
-                System.out.println("📝 [" + channelName + "] HTTP Request: " + requestLine);
+                // Debug logging
+                System.out.println("🔍 HTTP Request: " + requestLine);
 
-                // Parse the request
+                // Parse the request line to get the path
                 String[] requestParts = requestLine.split(" ");
-                if (requestParts.length < 2) {
-                    sendErrorResponse(out, 400, "Bad Request");
-                    return;
-                }
-
-                String method = requestParts[0];
-                String path = requestParts[1];
-
-                // Only handle GET requests
-                if (!"GET".equals(method)) {
-                    sendErrorResponse(out, 405, "Method Not Allowed");
-                    return;
-                }
-
-                // Route handling
-                if ("/transcript".equals(path)) {
-                    serveTranscript(out);
-                } else if ("/".equals(path)) {
-                    // Redirect root to transcript
-                    sendRedirectResponse(out, "/transcript");
-                } else if ("/health".equals(path)) {
-                    sendHealthResponse(out);
-                } else {
-                    sendErrorResponse(out, 404, "Not Found");
-                }
-
-            } catch (java.net.SocketTimeoutException e) {
-                System.err.println("⏱️ Request timeout for " + channelName);
-            }
-        }
-
-        private void serveTranscript(java.io.OutputStream out) throws Exception {
-            if (!htmlFile.exists()) {
-                System.err.println("❌ [" + channelName + "] HTML file not found: " + htmlFile.getAbsolutePath());
-                sendErrorResponse(out, 404, "Transcript file not found");
-                return;
-            }
-
-            System.out.println("📄 [" + channelName + "] Serving transcript file: " + htmlFile.getName() + " (" + htmlFile.length() + " bytes)");
-
-            // Send HTTP headers
-            String headers = "HTTP/1.1 200 OK\r\n" +
-                           "Content-Type: text/html; charset=UTF-8\r\n" +
-                           "Content-Length: " + htmlFile.length() + "\r\n" +
-                           "Cache-Control: no-cache, no-store, must-revalidate\r\n" +
-                           "Pragma: no-cache\r\n" +
-                           "Expires: 0\r\n" +
-                           "Access-Control-Allow-Origin: *\r\n" +
-                           "\r\n";
-
-            out.write(headers.getBytes(java.nio.charset.StandardCharsets.UTF_8));
-
-            // Send file content
-            try (java.io.FileInputStream fis = new java.io.FileInputStream(htmlFile);
-                 java.io.BufferedInputStream bis = new java.io.BufferedInputStream(fis)) {
+                if (requestParts.length < 2) return;
                 
-                byte[] buffer = new byte[8192]; // 8KB buffer
-                int bytesRead;
-                while ((bytesRead = bis.read(buffer)) != -1) {
-                    out.write(buffer, 0, bytesRead);
+                String requestPath = requestParts[1];
+                System.out.println("🔍 Request Path: " + requestPath);
+                
+                // Check if the request is for the transcript
+                if (!requestPath.equals("/transcript")) {
+                    // Return 404 for unknown paths
+                    System.out.println("❌ 404 - Unknown path: " + requestPath);
+                    String notFoundResponse = "HTTP/1.1 404 Not Found\r\n" +
+                                            "Content-Type: text/plain\r\n" +
+                                            "Content-Length: 13\r\n" +
+                                            "\r\n" +
+                                            "Not Found";
+                    out.write(notFoundResponse.getBytes());
+                    return;
                 }
+
+                // Check if the HTML file exists
+                if (!htmlFile.exists()) {
+                    System.out.println("❌ 404 - HTML file not found: " + htmlFile.getAbsolutePath());
+                    String notFoundResponse = "HTTP/1.1 404 Not Found\r\n" +
+                                            "Content-Type: text/plain\r\n" +
+                                            "Content-Length: 13\r\n" +
+                                            "\r\n" +
+                                            "File Not Found";
+                    out.write(notFoundResponse.getBytes());
+                    return;
+                }
+
+                // Success response - serve the HTML file
+                System.out.println("✅ Serving HTML file: " + htmlFile.getAbsolutePath() + " (size: " + htmlFile.length() + " bytes)");
+                String response = "HTTP/1.1 200 OK\r\n" +
+                                "Content-Type: text/html; charset=UTF-8\r\n" +
+                                "Content-Length: " + htmlFile.length() + "\r\n" +
+                                "Access-Control-Allow-Origin: *\r\n" +
+                                "\r\n";
+
+                out.write(response.getBytes());
+                
+                // Send the HTML file content
+                try (java.io.FileInputStream fis = new java.io.FileInputStream(htmlFile)) {
+                    byte[] buffer = new byte[1024];
+                    int bytesRead;
+                    while ((bytesRead = fis.read(buffer)) != -1) {
+                        out.write(buffer, 0, bytesRead);
+                    }
+                }
+                System.out.println("✅ HTML file served successfully");
             }
-
-            System.out.println("✅ [" + channelName + "] Transcript served successfully");
-        }
-
-        private void sendHealthResponse(java.io.OutputStream out) throws Exception {
-            String body = "OK - Transcript server for " + channelName + " is running";
-            String response = "HTTP/1.1 200 OK\r\n" +
-                            "Content-Type: text/plain; charset=UTF-8\r\n" +
-                            "Content-Length: " + body.length() + "\r\n" +
-                            "\r\n" +
-                            body;
-            out.write(response.getBytes(java.nio.charset.StandardCharsets.UTF_8));
-        }
-
-        private void sendRedirectResponse(java.io.OutputStream out, String location) throws Exception {
-            String response = "HTTP/1.1 302 Found\r\n" +
-                            "Location: " + location + "\r\n" +
-                            "Content-Length: 0\r\n" +
-                            "\r\n";
-            out.write(response.getBytes(java.nio.charset.StandardCharsets.UTF_8));
-        }
-
-        private void sendErrorResponse(java.io.OutputStream out, int statusCode, String statusText) throws Exception {
-            String body = "<html><body><h1>" + statusCode + " " + statusText + "</h1>" +
-                         "<p>Transcript server for channel: " + escapeHtml(channelName) + "</p>" +
-                         "</body></html>";
-            
-            String response = "HTTP/1.1 " + statusCode + " " + statusText + "\r\n" +
-                            "Content-Type: text/html; charset=UTF-8\r\n" +
-                            "Content-Length: " + body.length() + "\r\n" +
-                            "\r\n" +
-                            body;
-            
-            out.write(response.getBytes(java.nio.charset.StandardCharsets.UTF_8));
-            System.err.println("❌ [" + channelName + "] Sent " + statusCode + " response");
         }
     }
 }
