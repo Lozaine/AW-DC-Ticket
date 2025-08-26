@@ -5,7 +5,7 @@ import com.discordticketbot.database.TicketLogDAO;
 import com.discordticketbot.utils.ErrorLogger;
 import com.discordticketbot.utils.PermissionUtil;
 import com.discordticketbot.utils.TranscriptUtil;
-import com.discordticketbot.web.TranscriptWebController;
+import org.springframework.beans.factory.annotation.Value;
 import com.discordticketbot.utils.UserDisplayUtil;
 import com.discordticketbot.utils.TimestampUtil;
 import net.dv8tion.jda.api.EmbedBuilder;
@@ -35,6 +35,8 @@ public class TicketHandler {
     private final TicketLogDAO ticketLogDAO;
     private final ErrorLogger errorLogger;
     private static final Pattern TICKET_PATTERN = Pattern.compile("^ticket-(.+)-(\\d{3})$");
+    @Value("${app.base-url:https://aw-dc-ticket-production.up.railway.app}")
+    private String appBaseUrl;
 
     public TicketHandler(Map<String, GuildConfig> guildConfigs) {
         this.guildConfigs = guildConfigs;
@@ -276,7 +278,8 @@ public class TicketHandler {
                     String html = TranscriptUtil.createHtmlTranscript(channel, messages);
                     htmlFile = TranscriptUtil.saveHtmlTranscriptToFile(channel, html);
                     if (htmlFile != null) {
-                        directUrl = TranscriptWebController.buildPublicUrl(htmlFile.getName());
+                        String base = appBaseUrl.endsWith("/") ? appBaseUrl.substring(0, appBaseUrl.length() - 1) : appBaseUrl;
+                        directUrl = base + "/transcripts/" + htmlFile.getName();
                     }
                 }
 

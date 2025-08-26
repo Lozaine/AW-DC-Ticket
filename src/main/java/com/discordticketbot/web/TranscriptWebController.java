@@ -1,177 +1,65 @@
 package com.discordticketbot.web;
 
-import com.sun.net.httpserver.Headers;
-import com.sun.net.httpserver.HttpExchange;
-import com.sun.net.httpserver.HttpHandler;
-import com.sun.net.httpserver.HttpServer;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.io.FileSystemResource;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
+import org.springframework.stereotype.Controller;
+import org.springframework.ui.Model;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestMapping;
 
 import java.io.File;
-import java.io.FileInputStream;
-import java.io.IOException;
-import java.io.OutputStream;
-import java.net.InetSocketAddress;
-import java.net.URLConnection;
-import java.nio.charset.StandardCharsets;
-import java.util.Optional;
 
-/**
- * Minimal HTTP server to serve transcript files from the local "transcripts" directory.
- *
- * - Port is taken from env PORT (Railway), default 8080.
- * - Public base URL can be overridden via env PUBLIC_BASE_URL or RAILWAY_PUBLIC_DOMAIN.
- * - Serves: GET /health and GET /transcripts/{filename}
- */
+@Controller
+@RequestMapping
 public class TranscriptWebController {
-    private static volatile HttpServer server;
-    private static volatile String publicBaseUrl;
-    private static volatile int boundPort;
 
-    public static synchronized void startIfNeeded() {
-        if (server != null) return;
+    @Value("${app.base-url:https://aw-dc-ticket-production.up.railway.app}")
+    private String appBaseUrl;
 
-        try {
-            int port = getPortFromEnv();
-            HttpServer httpServer = HttpServer.create(new InetSocketAddress(port), 0);
-
-            // Health endpoint
-            httpServer.createContext("/health", exchange -> {
-                byte[] ok = "OK".getBytes(StandardCharsets.UTF_8);
-                exchange.getResponseHeaders().add("Content-Type", "text/plain; charset=utf-8");
-                exchange.sendResponseHeaders(200, ok.length);
-                try (OutputStream os = exchange.getResponseBody()) {
-                    os.write(ok);
-                }
-            });
-
-            // Static transcripts: /transcripts/{filename}
-            httpServer.createContext("/transcripts", new StaticTranscriptHandler());
-
-            httpServer.setExecutor(null);
-            httpServer.start();
-
-            server = httpServer;
-            boundPort = port;
-            publicBaseUrl = computePublicBaseUrl(port);
-            System.out.println("✅ Transcript web server started on port " + port + "; base URL: " + publicBaseUrl);
-        } catch (IOException e) {
-            System.err.println("❌ Failed to start transcript web server: " + e.getMessage());
-        }
+    @GetMapping("/health")
+    public ResponseEntity<String> health() {
+        return ResponseEntity.ok("OK");
     }
 
-    public static String getPublicBaseUrl() {
-        if (publicBaseUrl == null) {
-            publicBaseUrl = computePublicBaseUrl(boundPort == 0 ? 8080 : boundPort);
-        }
-        return publicBaseUrl;
+    @GetMapping("/")
+    public String dashboard(Model model) {
+        model.addAttribute("baseUrl", appBaseUrl);
+        return "dashboard";
     }
 
-    public static String buildPublicUrl(String transcriptFileName) {
-        return getPublicBaseUrl() + "/transcripts/" + transcriptFileName;
+    @GetMapping("/transcripts/{filename}")
+    public ResponseEntity<FileSystemResource> getTranscript(@PathVariable("filename") String filename) {
+        if (filename.contains("..") || filename.contains("\\") || filename.startsWith("/")) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
+        }
+
+        File file = new File("transcripts", filename);
+        if (!file.exists() || !file.isFile()) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
+        }
+
+        MediaType mediaType = filename.endsWith(".html")
+                ? MediaType.TEXT_HTML
+                : (filename.endsWith(".txt") ? MediaType.TEXT_PLAIN : MediaType.APPLICATION_OCTET_STREAM);
+
+        FileSystemResource resource = new FileSystemResource(file);
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CACHE_CONTROL, "public, max-age=31536000, immutable")
+                .contentType(mediaType)
+                .body(resource);
     }
 
-    private static int getPortFromEnv() {
-        String portEnv = System.getenv("PORT");
-        if (portEnv != null) {
-            try {
-                return Integer.parseInt(portEnv);
-            } catch (NumberFormatException ignored) {}
-        }
-        return 8080;
+    public String getPublicBaseUrl() {
+        return appBaseUrl;
     }
 
-    private static String computePublicBaseUrl(int port) {
-        // First check for explicit PUBLIC_BASE_URL
-        String publicBaseUrlEnv = System.getenv("PUBLIC_BASE_URL");
-        if (publicBaseUrlEnv != null && !publicBaseUrlEnv.isBlank()) {
-            return ensureHttpsScheme(publicBaseUrlEnv.replaceAll("/$", ""));
-        }
-        
-        // Then check for Railway's PUBLIC_DOMAIN
-        String railwayDomain = System.getenv("RAILWAY_PUBLIC_DOMAIN");
-        if (railwayDomain != null && !railwayDomain.isBlank()) {
-            return ensureHttpsScheme(railwayDomain.replaceAll("/$", ""));
-        }
-        
-        // Fallback to localhost
-        return "http://localhost:" + port;
-    }
-    
-    /**
-     * Ensures the URL has a proper scheme (https:// for production domains, http:// for localhost)
-     */
-    private static String ensureHttpsScheme(String url) {
-        if (url.startsWith("http://") || url.startsWith("https://")) {
-            return url; // Already has a scheme
-        }
-        
-        // Use https for production domains, http for localhost
-        if (url.contains("localhost") || url.contains("127.0.0.1")) {
-            return "http://" + url;
-        } else {
-            return "https://" + url;
-        }
-    }
-
-    private static class StaticTranscriptHandler implements HttpHandler {
-        @Override
-        public void handle(HttpExchange exchange) throws IOException {
-            if (!"GET".equalsIgnoreCase(exchange.getRequestMethod())) {
-                sendText(exchange, 405, "Method Not Allowed");
-                return;
-            }
-
-            String path = Optional.ofNullable(exchange.getRequestURI().getPath()).orElse("");
-            // Expected: /transcripts/<name>
-            String[] parts = path.split("/", 3);
-            if (parts.length < 3 || parts[2].isBlank()) {
-                sendText(exchange, 400, "Bad Request");
-                return;
-            }
-
-            String fileName = parts[2];
-            // Security: disallow path traversal
-            if (fileName.contains("..") || fileName.contains("\\") || fileName.startsWith("/")) {
-                sendText(exchange, 400, "Invalid filename");
-                return;
-            }
-
-            File baseDir = new File("transcripts");
-            File target = new File(baseDir, fileName);
-            if (!target.exists() || !target.isFile()) {
-                sendText(exchange, 404, "Not Found");
-                return;
-            }
-
-            Headers headers = exchange.getResponseHeaders();
-            String contentType = guessContentType(target.getName());
-            headers.add("Content-Type", contentType);
-            headers.add("Cache-Control", "public, max-age=31536000, immutable");
-
-            exchange.sendResponseHeaders(200, target.length());
-            try (OutputStream os = exchange.getResponseBody(); FileInputStream fis = new FileInputStream(target)) {
-                byte[] buf = new byte[8192];
-                int r;
-                while ((r = fis.read(buf)) != -1) {
-                    os.write(buf, 0, r);
-                }
-            }
-        }
-
-        private String guessContentType(String name) {
-            String type = URLConnection.guessContentTypeFromName(name);
-            if (type != null) return type;
-            if (name.endsWith(".html")) return "text/html; charset=utf-8";
-            if (name.endsWith(".txt")) return "text/plain; charset=utf-8";
-            return "application/octet-stream";
-        }
-
-        private void sendText(HttpExchange exchange, int code, String body) throws IOException {
-            byte[] bytes = body.getBytes(StandardCharsets.UTF_8);
-            exchange.getResponseHeaders().add("Content-Type", "text/plain; charset=utf-8");
-            exchange.sendResponseHeaders(code, bytes.length);
-            try (OutputStream os = exchange.getResponseBody()) {
-                os.write(bytes);
-            }
-        }
+    public String buildPublicUrl(String transcriptFileName) {
+        String base = appBaseUrl.endsWith("/") ? appBaseUrl.substring(0, appBaseUrl.length() - 1) : appBaseUrl;
+        return base + "/transcripts/" + transcriptFileName;
     }
 }
