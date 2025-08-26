@@ -148,7 +148,11 @@ public class TranscriptUtil {
         html.append("<style>\n");
         html.append("body { font-family: 'Segoe UI', Arial, sans-serif; background: #36393f; color: #dcddde; margin: 0; padding: 20px; line-height: 1.6; }\n");
         html.append(".container { max-width: 1000px; margin: 0 auto; }\n");
-        html.append(".header { background: #2f3136; padding: 20px; border-radius: 8px; margin-bottom: 20px; box-shadow: 0 2px 10px rgba(0,0,0,0.2); }\n");
+        html.append(".header { background: #2f3136; padding: 20px; border-radius: 8px; margin-bottom: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.2); }\n");
+        html.append(".toolbar { display: flex; flex-wrap: wrap; gap: 10px; margin: 10px 0 20px; }\n");
+        html.append(".btn { background: #5865f2; color: white; border: none; text-decoration: none; padding: 8px 12px; border-radius: 6px; cursor: pointer; font-size: 14px; display: inline-block; }\n");
+        html.append(".btn.secondary { background: #2f3136; }\n");
+        html.append(".btn:hover { opacity: 0.9; }\n");
         html.append(".close-info { background: #5865f2; padding: 15px; border-radius: 8px; margin-bottom: 20px; box-shadow: 0 2px 10px rgba(0,0,0,0.2); }\n");
         html.append(".message { margin-bottom: 15px; padding: 10px; background: #40444b; border-radius: 8px; box-shadow: 0 1px 5px rgba(0,0,0,0.1); }\n");
         html.append(".author { font-weight: bold; color: #ffffff; margin-bottom: 5px; display: flex; align-items: center; gap: 8px; }\n");
@@ -285,6 +289,31 @@ public class TranscriptUtil {
         html.append("<p><small>This transcript will be available for viewing for a limited time.</small></p>\n");
         html.append("</div>\n");
         html.append("</div>\n"); // Close container
+        // Toolbar with direct and download links
+        html.append("<div class='toolbar'>\n");
+        html.append("  <a class='btn' href='/transcript' target='_blank'>Open Direct Link</a>\n");
+        html.append("  <a class='btn secondary' href='/download'>Download Transcript (HTML)</a>\n");
+        html.append("  <button class='btn' id='copyLinkBtn'>Copy Link</button>\n");
+        html.append("  <span id='copyStatus' style='display:none;margin-left:6px;'>Copied!</span>\n");
+        html.append("</div>\n\n");
+        // Simple script to copy the current URL
+        html.append("<script>\n");
+        html.append("(function(){\n");
+        html.append("  var btn = document.getElementById('copyLinkBtn');\n");
+        html.append("  if(btn){\n");
+        html.append("    btn.addEventListener('click', function(){\n");
+        html.append("      var url = window.location.href;\n");
+        html.append("      navigator.clipboard && navigator.clipboard.writeText(url).then(function(){\n");
+        html.append("        var s = document.getElementById('copyStatus'); if(s){ s.style.display='inline'; setTimeout(function(){ s.style.display='none'; }, 1500);}\n");
+        html.append("      }).catch(function(){\n");
+        html.append("        // Fallback copy\n");
+        html.append("        var ta=document.createElement('textarea'); ta.value=url; document.body.appendChild(ta); ta.select(); try{document.execCommand('copy');}catch(e){} document.body.removeChild(ta);\n");
+        html.append("        var s = document.getElementById('copyStatus'); if(s){ s.style.display='inline'; setTimeout(function(){ s.style.display='none'; }, 1500);}\n");
+        html.append("      });\n");
+        html.append("    });\n");
+        html.append("  }\n");
+        html.append("})();\n");
+        html.append("</script>\n");
         html.append("</body>\n</html>");
 
         return html.toString();
@@ -339,7 +368,16 @@ public class TranscriptUtil {
             }
 
             // Find an available port
-            int port = findAvailablePort();
+            int port = -1;
+            try {
+                String envPort = System.getenv("PORT");
+                if (envPort != null && !envPort.isBlank()) {
+                    port = Integer.parseInt(envPort.trim());
+                }
+            } catch (Exception ignored) {}
+            if (port <= 0) {
+                port = findAvailablePort();
+            }
             if (port == -1) {
                 throw new IOException("No available ports found");
             }
@@ -743,6 +781,8 @@ public class TranscriptUtil {
                 // Route handling
                 if ("/transcript".equals(path)) {
                     serveTranscript(out);
+                } else if ("/download".equals(path)) {
+                    serveDownload(out);
                 } else if ("/".equals(path)) {
                     // Redirect root to transcript
                     sendRedirectResponse(out, "/transcript");
@@ -790,6 +830,37 @@ public class TranscriptUtil {
             }
 
             System.out.println("✅ [" + channelName + "] Transcript served successfully");
+        }
+
+        private void serveDownload(java.io.OutputStream out) throws Exception {
+            if (!htmlFile.exists()) {
+                System.err.println("❌ [" + channelName + "] HTML file not found for download: " + htmlFile.getAbsolutePath());
+                sendErrorResponse(out, 404, "Transcript file not found");
+                return;
+            }
+
+            String safeName = htmlFile.getName().replaceAll("[^a-zA-Z0-9._-]", "_");
+            String headers = "HTTP/1.1 200 OK\r\n" +
+                           "Content-Type: application/octet-stream\r\n" +
+                           "Content-Disposition: attachment; filename=\"" + safeName + "\"\r\n" +
+                           "Content-Length: " + htmlFile.length() + "\r\n" +
+                           "Cache-Control: no-cache, no-store, must-revalidate\r\n" +
+                           "Pragma: no-cache\r\n" +
+                           "Expires: 0\r\n" +
+                           "Access-Control-Allow-Origin: *\r\n" +
+                           "\r\n";
+
+            out.write(headers.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+
+            try (java.io.FileInputStream fis = new java.io.FileInputStream(htmlFile);
+                 java.io.BufferedInputStream bis = new java.io.BufferedInputStream(fis)) {
+                byte[] buffer = new byte[8192];
+                int bytesRead;
+                while ((bytesRead = bis.read(buffer)) != -1) {
+                    out.write(buffer, 0, bytesRead);
+                }
+            }
+            System.out.println("✅ [" + channelName + "] Transcript download served successfully");
         }
 
         private void sendHealthResponse(java.io.OutputStream out) throws Exception {
