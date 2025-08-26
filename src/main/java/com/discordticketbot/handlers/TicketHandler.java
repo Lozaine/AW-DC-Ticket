@@ -266,12 +266,19 @@ public class TicketHandler {
 
         channel.getHistory().retrievePast(100).queue(messages -> {
             try {
+                // Generate both text and HTML transcripts
                 String transcriptContent = TranscriptUtil.createTranscriptContent(channel, messages);
+                String htmlTranscriptContent = TranscriptUtil.createHtmlTranscriptContent(channel, messages);
+                
                 File transcriptFile = TranscriptUtil.saveTranscriptToFile(channel, transcriptContent);
+                TranscriptUtil.TranscriptFileInfo htmlInfo = TranscriptUtil.saveHtmlTranscriptToFile(channel, htmlTranscriptContent);
+                
+                // Generate direct link for HTML transcript
+                String directLink = TranscriptUtil.generateDirectLink(htmlInfo.getUniqueId());
 
                 TextChannel transcriptChannel = guild.getTextChannelById(config.transcriptChannelId);
                 if (transcriptChannel != null) {
-                    sendTranscriptEmbed(transcriptChannel, event, channel, messages.size(), transcriptFile, null, null);
+                    sendTranscriptEmbed(transcriptChannel, event, channel, messages.size(), transcriptFile, htmlInfo.getFile(), directLink);
                     event.getHook().sendMessage("✅ Transcript generated and saved to logs channel!").queue();
                 } else {
                     event.getHook().sendMessage("❌ Transcript log channel not found. Please contact an administrator.").queue();
@@ -386,8 +393,18 @@ public class TicketHandler {
                 .setColor(Color.BLUE)
                 .setFooter("Transcript saved for record keeping");
 
-        transcriptChannel.sendMessageEmbeds(transcriptEmbed.build())
-                .addFiles(net.dv8tion.jda.api.utils.FileUpload.fromData(transcriptFile))
-                .queue();
+        // Add Direct Link button if HTML transcript is available
+        if (directUrl != null) {
+            transcriptEmbed.addField("🌐 HTML Transcript", "Click the Direct Link button below to view the HTML transcript in your browser.", false);
+            
+            transcriptChannel.sendMessageEmbeds(transcriptEmbed.build())
+                    .addFiles(net.dv8tion.jda.api.utils.FileUpload.fromData(transcriptFile))
+                    .setActionRow(Button.link(directUrl, "🌐 Open HTML Transcript"))
+                    .queue();
+        } else {
+            transcriptChannel.sendMessageEmbeds(transcriptEmbed.build())
+                    .addFiles(net.dv8tion.jda.api.utils.FileUpload.fromData(transcriptFile))
+                    .queue();
+        }
     }
 }

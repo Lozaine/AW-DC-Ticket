@@ -18,6 +18,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.UUID;
 
 public class TranscriptUtil {
 
@@ -105,6 +106,259 @@ public class TranscriptUtil {
     }
 
     /**
+     * Creates an HTML transcript content from channel messages.
+     * Enhanced with modern styling and better formatting.
+     */
+    public static String createHtmlTranscriptContent(TextChannel channel, List<Message> messages) {
+        StringBuilder html = new StringBuilder();
+
+        // Sort messages to be in chronological order (oldest first)
+        List<Message> sortedMessages = messages.stream()
+                .sorted((m1, m2) -> m1.getTimeCreated().compareTo(m2.getTimeCreated()))
+                .toList();
+
+        // HTML Header with CSS styling
+        html.append("<!DOCTYPE html>\n");
+        html.append("<html lang=\"en\">\n");
+        html.append("<head>\n");
+        html.append("    <meta charset=\"UTF-8\">\n");
+        html.append("    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n");
+        html.append("    <title>Discord Ticket Transcript - ").append(channel.getName()).append("</title>\n");
+        html.append("    <style>\n");
+        html.append("        * { margin: 0; padding: 0; box-sizing: border-box; }\n");
+        html.append("        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #36393f; color: #dcddde; line-height: 1.6; }\n");
+        html.append("        .container { max-width: 1200px; margin: 0 auto; padding: 20px; }\n");
+        html.append("        .header { background: #2f3136; padding: 20px; border-radius: 8px; margin-bottom: 20px; border-left: 4px solid #7289da; }\n");
+        html.append("        .header h1 { color: #ffffff; margin-bottom: 10px; }\n");
+        html.append("        .header-info { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; }\n");
+        html.append("        .info-item { background: #40444b; padding: 10px; border-radius: 5px; }\n");
+        html.append("        .info-label { color: #b9bbbe; font-size: 0.9em; margin-bottom: 5px; }\n");
+        html.append("        .info-value { color: #ffffff; font-weight: 500; }\n");
+        html.append("        .messages { background: #2f3136; border-radius: 8px; padding: 20px; }\n");
+        html.append("        .message { margin-bottom: 20px; padding: 15px; background: #40444b; border-radius: 8px; border-left: 3px solid #7289da; }\n");
+        html.append("        .message-header { display: flex; align-items: center; margin-bottom: 10px; }\n");
+        html.append("        .avatar { width: 40px; height: 40px; border-radius: 50%; margin-right: 12px; }\n");
+        html.append("        .user-info { flex: 1; }\n");
+        html.append("        .username { color: #ffffff; font-weight: 600; font-size: 1.1em; }\n");
+        html.append("        .timestamp { color: #72767d; font-size: 0.9em; margin-left: 10px; }\n");
+        html.append("        .message-content { color: #dcddde; line-height: 1.5; word-wrap: break-word; }\n");
+        html.append("        .embed { background: #2f3136; border-left: 3px solid #7289da; padding: 10px; margin: 10px 0; border-radius: 5px; }\n");
+        html.append("        .embed-title { color: #ffffff; font-weight: 600; margin-bottom: 5px; }\n");
+        html.append("        .embed-description { color: #b9bbbe; }\n");
+        html.append("        .embed-field { margin: 5px 0; }\n");
+        html.append("        .embed-field-name { color: #ffffff; font-weight: 500; }\n");
+        html.append("        .embed-field-value { color: #b9bbbe; }\n");
+        html.append("        .attachment { background: #40444b; padding: 10px; margin: 10px 0; border-radius: 5px; border-left: 3px solid #ff6b6b; }\n");
+        html.append("        .attachment-name { color: #ffffff; font-weight: 500; }\n");
+        html.append("        .attachment-size { color: #72767d; font-size: 0.9em; }\n");
+        html.append("        .reactions { margin-top: 10px; }\n");
+        html.append("        .reaction { display: inline-block; background: #40444b; padding: 4px 8px; border-radius: 12px; margin-right: 5px; font-size: 0.9em; }\n");
+        html.append("        .close-request { background: #2f3136; border-left: 3px solid #ff6b6b; padding: 15px; margin: 20px 0; border-radius: 8px; }\n");
+        html.append("        .close-request h3 { color: #ff6b6b; margin-bottom: 10px; }\n");
+        html.append("        .footer { text-align: center; margin-top: 30px; padding: 20px; color: #72767d; border-top: 1px solid #40444b; }\n");
+        html.append("        @media (max-width: 768px) { .header-info { grid-template-columns: 1fr; } .message-header { flex-direction: column; align-items: flex-start; } }\n");
+        html.append("    </style>\n");
+        html.append("</head>\n");
+        html.append("<body>\n");
+        html.append("    <div class=\"container\">\n");
+        
+        // Header Section
+        html.append("        <div class=\"header\">\n");
+        html.append("            <h1>📄 Discord Ticket Transcript</h1>\n");
+        html.append("            <div class=\"header-info\">\n");
+        html.append("                <div class=\"info-item\">\n");
+        html.append("                    <div class=\"info-label\">Server</div>\n");
+        html.append("                    <div class=\"info-value\">").append(escapeHtml(channel.getGuild().getName())).append("</div>\n");
+        html.append("                </div>\n");
+        html.append("                <div class=\"info-item\">\n");
+        html.append("                    <div class=\"info-label\">Channel</div>\n");
+        html.append("                    <div class=\"info-value\">").append(escapeHtml(channel.getName())).append("</div>\n");
+        html.append("                </div>\n");
+        html.append("                <div class=\"info-item\">\n");
+        html.append("                    <div class=\"info-label\">Category</div>\n");
+        html.append("                    <div class=\"info-value\">").append(channel.getParentCategory() != null ? escapeHtml(channel.getParentCategory().getName()) : "None").append("</div>\n");
+        html.append("                </div>\n");
+        html.append("                <div class=\"info-item\">\n");
+        html.append("                    <div class=\"info-label\">Total Messages</div>\n");
+        html.append("                    <div class=\"info-value\">").append(sortedMessages.size()).append("</div>\n");
+        html.append("                </div>\n");
+        html.append("                <div class=\"info-item\">\n");
+        html.append("                    <div class=\"info-label\">Generated</div>\n");
+        html.append("                    <div class=\"info-value\">").append(LocalDateTime.now(TIMEZONE_OFFSET).format(TRANSCRIPT_FORMATTER)).append(TIMEZONE_SUFFIX).append("</div>\n");
+        html.append("                </div>\n");
+        html.append("                <div class=\"info-item\">\n");
+        html.append("                    <div class=\"info-label\">Generated by</div>\n");
+        html.append("                    <div class=\"info-value\">Bot System</div>\n");
+        html.append("                </div>\n");
+        html.append("            </div>\n");
+        html.append("        </div>\n");
+
+        // Close Request Information
+        String closeRequestHtml = generateCloseRequestHtml(channel.getId());
+        if (closeRequestHtml != null) {
+            html.append(closeRequestHtml);
+        }
+
+        // Messages Section
+        html.append("        <div class=\"messages\">\n");
+        html.append("            <h2 style=\"color: #ffffff; margin-bottom: 20px; border-bottom: 2px solid #7289da; padding-bottom: 10px;\">💬 Messages</h2>\n");
+        
+        for (Message msg : sortedMessages) {
+            String timestamp = msg.getTimeCreated().atZoneSameInstant(TIMEZONE_OFFSET).format(TRANSCRIPT_FORMATTER);
+            String avatarUrl = msg.getAuthor().getAvatarUrl() != null ? msg.getAuthor().getAvatarUrl() : "https://cdn.discordapp.com/embed/avatars/0.png";
+            
+            html.append("            <div class=\"message\">\n");
+            html.append("                <div class=\"message-header\">\n");
+            html.append("                    <img src=\"").append(avatarUrl).append("\" alt=\"Avatar\" class=\"avatar\">\n");
+            html.append("                    <div class=\"user-info\">\n");
+            html.append("                        <div class=\"username\">").append(escapeHtml(msg.getAuthor().getName())).append("</div>\n");
+            html.append("                        <span class=\"timestamp\">").append(timestamp).append(TIMEZONE_SUFFIX).append("</span>\n");
+            html.append("                    </div>\n");
+            html.append("                </div>\n");
+            html.append("                <div class=\"message-content\">").append(escapeHtml(processMessageContent(msg.getContentDisplay()))).append("</div>\n");
+
+            // Embeds
+            if (!msg.getEmbeds().isEmpty()) {
+                for (MessageEmbed embed : msg.getEmbeds()) {
+                    html.append("                <div class=\"embed\">\n");
+                    if (embed.getTitle() != null) {
+                        html.append("                    <div class=\"embed-title\">").append(escapeHtml(embed.getTitle())).append("</div>\n");
+                    }
+                    if (embed.getDescription() != null) {
+                        String description = convertDiscordTimestamps(embed.getDescription());
+                        description = enhanceCloseRequestInfo(description);
+                        html.append("                    <div class=\"embed-description\">").append(escapeHtml(description)).append("</div>\n");
+                    }
+                    if (!embed.getFields().isEmpty()) {
+                        for (MessageEmbed.Field field : embed.getFields()) {
+                            if (field.getName() != null && field.getValue() != null) {
+                                html.append("                    <div class=\"embed-field\">\n");
+                                html.append("                        <span class=\"embed-field-name\">").append(escapeHtml(field.getName())).append(":</span>\n");
+                                html.append("                        <span class=\"embed-field-value\"> ").append(escapeHtml(field.getValue())).append("</span>\n");
+                                html.append("                    </div>\n");
+                            }
+                        }
+                    }
+                    html.append("                </div>\n");
+                }
+            }
+
+            // Attachments
+            if (!msg.getAttachments().isEmpty()) {
+                for (Message.Attachment attachment : msg.getAttachments()) {
+                    html.append("                <div class=\"attachment\">\n");
+                    html.append("                    <div class=\"attachment-name\">📎 ").append(escapeHtml(attachment.getFileName())).append("</div>\n");
+                    html.append("                    <div class=\"attachment-size\">Size: ").append(getReadableFileSize(attachment.getSize())).append("</div>\n");
+                    html.append("                    <div class=\"attachment-size\">URL: <a href=\"").append(attachment.getUrl()).append("\" target=\"_blank\" style=\"color: #7289da;\">").append(attachment.getUrl()).append("</a></div>\n");
+                    html.append("                </div>\n");
+                }
+            }
+
+            // Reactions
+            if (!msg.getReactions().isEmpty()) {
+                html.append("                <div class=\"reactions\">\n");
+                for (MessageReaction reaction : msg.getReactions()) {
+                    html.append("                    <span class=\"reaction\">").append(reaction.getEmoji().getName()).append(" ").append(reaction.getCount()).append("</span>\n");
+                }
+                html.append("                </div>\n");
+            }
+            
+            html.append("            </div>\n");
+        }
+        
+        html.append("        </div>\n");
+        
+        // Footer
+        html.append("        <div class=\"footer\">\n");
+        html.append("            <p>📄 End of Transcript</p>\n");
+        html.append("            <p>Generated by Discord Ticket Bot</p>\n");
+        html.append("        </div>\n");
+        
+        html.append("    </div>\n");
+        html.append("</body>\n");
+        html.append("</html>");
+
+        return html.toString();
+    }
+
+    /**
+     * Generates HTML for close request information.
+     */
+    private static String generateCloseRequestHtml(String channelId) {
+        try {
+            CloseRequestDAO closeRequestDAO = new CloseRequestDAO();
+            CloseRequestDAO.CloseRequestDetails details = closeRequestDAO.getCloseRequestDetails(channelId);
+
+            if (details != null) {
+                StringBuilder html = new StringBuilder();
+                html.append("        <div class=\"close-request\">\n");
+                html.append("            <h3>🔒 Close Request Details</h3>\n");
+                html.append("            <div class=\"header-info\">\n");
+                html.append("                <div class=\"info-item\">\n");
+                html.append("                    <div class=\"info-label\">Requested by</div>\n");
+                html.append("                    <div class=\"info-value\">").append(escapeHtml(details.requestedBy)).append("</div>\n");
+                html.append("                </div>\n");
+                html.append("                <div class=\"info-item\">\n");
+                html.append("                    <div class=\"info-label\">Ticket owner</div>\n");
+                html.append("                    <div class=\"info-value\">").append(escapeHtml(details.ticketOwner)).append("</div>\n");
+                html.append("                </div>\n");
+                html.append("                <div class=\"info-item\">\n");
+                html.append("                    <div class=\"info-label\">Reason</div>\n");
+                html.append("                    <div class=\"info-value\">").append(escapeHtml(details.reason != null ? details.reason : "No reason provided")).append("</div>\n");
+                html.append("                </div>\n");
+                if (details.timeoutHours != null) {
+                    html.append("                <div class=\"info-item\">\n");
+                    html.append("                    <div class=\"info-label\">Auto-close timeout</div>\n");
+                    html.append("                    <div class=\"info-value\">").append(details.timeoutHours).append(" hours</div>\n");
+                    html.append("                </div>\n");
+                }
+                html.append("                <div class=\"info-item\">\n");
+                html.append("                    <div class=\"info-label\">Status</div>\n");
+                html.append("                    <div class=\"info-value\">").append(escapeHtml(details.status)).append("</div>\n");
+                html.append("                </div>\n");
+                html.append("                <div class=\"info-item\">\n");
+                html.append("                    <div class=\"info-label\">Created at</div>\n");
+                html.append("                    <div class=\"info-value\">").append(details.createdAt != null ?
+                        details.createdAt.toLocalDateTime().atOffset(TIMEZONE_OFFSET).format(TRANSCRIPT_FORMATTER) + TIMEZONE_SUFFIX : "Unknown").append("</div>\n");
+                html.append("                </div>\n");
+                if (details.respondedAt != null) {
+                    html.append("                <div class=\"info-item\">\n");
+                    html.append("                    <div class=\"info-label\">Responded at</div>\n");
+                    html.append("                    <div class=\"info-value\">").append(
+                            details.respondedAt.toLocalDateTime().atOffset(TIMEZONE_OFFSET).format(TRANSCRIPT_FORMATTER) + TIMEZONE_SUFFIX).append("</div>\n");
+                    html.append("                </div>\n");
+                }
+                if (details.respondedBy != null) {
+                    html.append("                <div class=\"info-item\">\n");
+                    html.append("                    <div class=\"info-label\">Responded by</div>\n");
+                    html.append("                    <div class=\"info-value\">").append(escapeHtml(details.respondedBy)).append("</div>\n");
+                    html.append("                </div>\n");
+                }
+                if (details.excludedFromAutoClose) {
+                    html.append("                <div class=\"info-item\">\n");
+                    html.append("                    <div class=\"info-label\">Excluded from auto-close</div>\n");
+                    html.append("                    <div class=\"info-value\">Yes</div>\n");
+                    html.append("                </div>\n");
+                }
+                html.append("            </div>\n");
+                html.append("        </div>\n");
+                return html.toString();
+            }
+        } catch (Exception e) {
+            StringBuilder html = new StringBuilder();
+            html.append("        <div class=\"close-request\">\n");
+            html.append("            <h3>🔒 Close Request Details</h3>\n");
+            html.append("            <div class=\"info-item\">\n");
+            html.append("                <div class=\"info-label\">Error</div>\n");
+            html.append("                <div class=\"info-value\">Could not retrieve close request details: ").append(escapeHtml(e.getMessage())).append("</div>\n");
+            html.append("            </div>\n");
+            html.append("        </div>\n");
+            return html.toString();
+        }
+        return null;
+    }
+
+    /**
      * Saves the plain text transcript to a file.
      */
     public static File saveTranscriptToFile(TextChannel channel, String content) throws IOException {
@@ -121,6 +375,46 @@ public class TranscriptUtil {
         }
         System.out.println("Transcript saved: " + transcriptFile.getAbsolutePath());
         return transcriptFile;
+    }
+
+    /**
+     * Saves the HTML transcript to a file with a unique identifier.
+     * Returns the file and the unique ID for URL generation.
+     */
+    public static TranscriptFileInfo saveHtmlTranscriptToFile(TextChannel channel, String htmlContent) throws IOException {
+        File transcriptsDir = new File("transcripts");
+        if (!transcriptsDir.exists()) transcriptsDir.mkdirs();
+
+        // Generate unique identifier for the transcript
+        String uniqueId = UUID.randomUUID().toString();
+        
+        String fileName = String.format("%s_%s_%s.html",
+                channel.getName(),
+                LocalDateTime.now(TIMEZONE_OFFSET).format(DateTimeFormatter.ofPattern("yyyy-MM-dd_HH-mm-ss")),
+                uniqueId);
+
+        File htmlFile = new File(transcriptsDir, fileName);
+        try (BufferedWriter writer = new BufferedWriter(new FileWriter(htmlFile))) {
+            writer.write(htmlContent);
+        }
+        System.out.println("HTML Transcript saved: " + htmlFile.getAbsolutePath());
+        
+        return new TranscriptFileInfo(htmlFile, uniqueId);
+    }
+
+    /**
+     * Generates a direct link URL for the HTML transcript.
+     */
+    public static String generateDirectLink(String uniqueId) {
+        String baseUrl = System.getenv("RAILWAY_PUBLIC_DOMAIN");
+        if (baseUrl == null || baseUrl.trim().isEmpty()) {
+            baseUrl = "https://aw-dc-ticket-production.up.railway.app";
+        }
+        // Ensure the URL starts with https://
+        if (!baseUrl.startsWith("http")) {
+            baseUrl = "https://" + baseUrl;
+        }
+        return baseUrl + "/transcript/" + uniqueId;
     }
 
     /**
@@ -224,5 +518,38 @@ public class TranscriptUtil {
         int exp = (int) (Math.log(bytes) / Math.log(1024));
         String pre = "KMGTPE".charAt(exp - 1) + "";
         return String.format("%.1f %sB", bytes / Math.pow(1024, exp), pre);
+    }
+
+    /**
+     * Escapes HTML special characters to prevent XSS.
+     */
+    private static String escapeHtml(String text) {
+        if (text == null) return "";
+        return text.replace("&", "&amp;")
+                  .replace("<", "&lt;")
+                  .replace(">", "&gt;")
+                  .replace("\"", "&quot;")
+                  .replace("'", "&#39;");
+    }
+
+    /**
+     * Data class to hold transcript file information.
+     */
+    public static class TranscriptFileInfo {
+        private final File file;
+        private final String uniqueId;
+
+        public TranscriptFileInfo(File file, String uniqueId) {
+            this.file = file;
+            this.uniqueId = uniqueId;
+        }
+
+        public File getFile() {
+            return file;
+        }
+
+        public String getUniqueId() {
+            return uniqueId;
+        }
     }
 }

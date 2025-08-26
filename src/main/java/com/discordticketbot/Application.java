@@ -1,10 +1,21 @@
 package com.discordticketbot;
 
 import com.discordticketbot.bot.TicketBot;
+import com.discordticketbot.utils.HttpServerUtil;
 
 public class Application {
 
     public static void main(String[] args) {
+        // Start the HTTP server for transcripts
+        try {
+            System.out.println("🌐 Starting HTTP server for transcripts...");
+            HttpServerUtil.startServer();
+            System.out.println("✅ HTTP server started successfully!");
+        } catch (Exception e) {
+            System.err.println("❌ Failed to start HTTP server: " + e.getMessage());
+            e.printStackTrace();
+        }
+
         // Start the Discord bot
         try {
             String botToken = System.getenv("BOT_TOKEN");
@@ -19,6 +30,9 @@ public class Application {
                 Runtime.getRuntime().addShutdownHook(new Thread(() -> {
                     System.out.println("🛑 Shutting down Discord bot...");
                     bot.shutdown();
+                    
+                    System.out.println("🛑 Shutting down HTTP server...");
+                    HttpServerUtil.stopServer();
                 }));
                 
                 // Wait indefinitely
