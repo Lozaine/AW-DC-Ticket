@@ -1,7 +1,6 @@
 package com.discordticketbot.bot;
 
 import com.discordticketbot.bot.TicketBot;
-import com.discordticketbot.web.WebDashboard;
 import io.github.cdimascio.dotenv.Dotenv;
 
 public class Main {
@@ -39,21 +38,6 @@ public class Main {
 
             System.out.println("🤖 Starting Discord bot...");
             bot.start();
-
-            // Start lightweight web dashboard (Javalin)
-            try {
-                int port = 0;
-                String envPort = System.getenv("PORT");
-                if (envPort != null && !envPort.isBlank()) {
-                    port = Integer.parseInt(envPort.trim());
-                } else {
-                    port = 8080; // local default
-                }
-                WebDashboard.start(port);
-                System.out.println("🌐 Web dashboard started on port " + port);
-            } catch (Exception webEx) {
-                System.err.println("⚠️ Failed to start web dashboard: " + webEx.getMessage());
-            }
 
             System.out.println("✅ Discord Ticket Bot started successfully!");
             System.out.println("🎫 Bot is ready to handle tickets!");
