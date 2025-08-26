@@ -26,7 +26,5 @@ EXPOSE 8080
 
 # Environment variables for web dashboard
 ENV PUBLIC_BASE_URL=${PUBLIC_BASE_URL:-https://aw-dc-ticket-production.up.railway.app}
-ENV BOT_CLIENT_ID=${BOT_CLIENT_ID}
-ENV BOT_CLIENT_SECRET=${BOT_CLIENT_SECRET}
 
 CMD ["sh", "-c", "java -Xmx512m -Xms256m -Djava.awt.headless=true -jar app.jar"]

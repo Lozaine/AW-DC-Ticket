@@ -14,22 +14,10 @@ public class SecurityConfig {
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
             .authorizeHttpRequests(authorize -> authorize
-                .requestMatchers("/", "/css/**", "/js/**", "/images/**", "/error").permitAll()
-                .requestMatchers("/login", "/login/**").permitAll()
-                .anyRequest().authenticated()
+                .requestMatchers("/", "/health", "/transcripts/**", "/css/**", "/js/**", "/images/**", "/error").permitAll()
+                .anyRequest().permitAll()
             )
-            .oauth2Login(oauth2 -> oauth2
-                .loginPage("/login")
-                .defaultSuccessUrl("/dashboard", true)
-                .failureUrl("/login?error=true")
-            )
-            .logout(logout -> logout
-                .logoutUrl("/logout")
-                .logoutSuccessUrl("/")
-                .deleteCookies("JSESSIONID")
-                .invalidateHttpSession(true)
-                .clearAuthentication(true)
-            );
+            .csrf(csrf -> csrf.disable());
         
         return http.build();
     }
