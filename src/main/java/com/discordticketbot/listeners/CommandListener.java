@@ -14,6 +14,8 @@ public class CommandListener extends ListenerAdapter {
     private final PanelHandler panelHandler;
     private final HelpHandler helpHandler;
     private final ConfigHandler configHandler;
+    private final CleanupHandler cleanupHandler;
+    private final AssignmentHandler assignmentHandler;
     private final StatsHandler statsHandler;
     private final CloseRequestHandler closeRequestHandler;
     private final ErrorLogger errorLogger;
@@ -24,6 +26,8 @@ public class CommandListener extends ListenerAdapter {
         this.panelHandler = new PanelHandler(guildConfigs);
         this.helpHandler = new HelpHandler(guildConfigs);
         this.configHandler = new ConfigHandler(guildConfigs);
+        this.cleanupHandler = new CleanupHandler(guildConfigs);
+        this.assignmentHandler = new AssignmentHandler(guildConfigs);
         this.statsHandler = new StatsHandler(guildConfigs);
         this.closeRequestHandler = new CloseRequestHandler(guildConfigs);
         this.errorLogger = new ErrorLogger(guildConfigs);
@@ -39,6 +43,8 @@ public class CommandListener extends ListenerAdapter {
                 case "setup" -> setupHandler.handle(event);
                 case "panel" -> panelHandler.handle(event);
                 case "config" -> configHandler.handle(event);
+                case "cleanup" -> cleanupHandler.handle(event);
+                case "assign" -> assignmentHandler.handle(event);
                 case "stats" -> statsHandler.handle(event);
                 case "closerequest" -> closeRequestHandler.handleCloseRequest(event);
                 case "autoclose" -> {

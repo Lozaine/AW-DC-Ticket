@@ -1,6 +1,6 @@
 # Discord Ticket Bot
 
-A comprehensive Discord bot for managing support tickets with automated channel creation, permission management, transcript generation, and **persistent PostgreSQL database storage**.
+A comprehensive Discord bot for managing support tickets with automated channel creation, permission management, transcript generation, **persistent PostgreSQL database storage**, and advanced ticket management features.
 
 ## Features
 
@@ -10,6 +10,9 @@ A comprehensive Discord bot for managing support tickets with automated channel 
 - **Global Ticket Counter**: Persistent numbering system stored in database (ticket-username-001, 002, etc.)
 - **Permission Management**: Automatically sets up channel permissions for ticket owners and staff
 - **Persistent Storage**: All configurations and ticket data stored in PostgreSQL database
+- **Ticket Assignment**: Staff can assign tickets to specific team members
+- **Auto-Close System**: Configurable timeouts with user confirmation
+- **Close Requests**: Staff can request ticket closure with user approval
 
 ### 🗄️ Database Features
 - **PostgreSQL Integration**: Robust database storage for all configurations
@@ -17,19 +20,24 @@ A comprehensive Discord bot for managing support tickets with automated channel 
 - **Multi-Guild Support**: Each Discord server has its own configuration stored separately
 - **Automatic Migration**: Database tables created automatically on first run
 - **Data Persistence**: Ticket counters, configurations, and logs survive bot restarts
+- **Ticket Logging**: Comprehensive logging of all ticket activities and statistics
+- **Close Request Tracking**: Persistent storage of ticket closure requests and approvals
 
 ### 🔧 Administration
 - **Easy Setup**: Simple slash command configuration with database persistence
-- **Role-Based Access**: Support staff role integration
+- **Role-Based Access**: Support staff role integration with permission verification
 - **Transcript Generation**: Automatic transcript creation with timestamps
 - **Channel Management**: Close, reopen, and delete tickets with confirmation
 - **Configuration Backup**: All settings automatically saved to database
+- **Statistics Dashboard**: Comprehensive ticket analytics and reporting
+- **Cleanup Policies**: Configurable automatic cleanup of old logs and requests
 
 ### 🛡️ Security & Permissions
 - **Administrator Required**: Bot requires Administrator permission for reliable operation
 - **Role-Based Permissions**: Support staff and admin role verification
 - **Owner Verification**: Ticket ownership validation
 - **Secure Database**: Connection pooling with proper credential management
+- **Permission Inheritance**: Automatic permission setup for ticket channels
 
 ### 📊 Advanced Features
 - **Transcript Logging**: Detailed conversation logs with attachments and reactions
@@ -37,6 +45,8 @@ A comprehensive Discord bot for managing support tickets with automated channel 
 - **Embed Support**: Rich embed messages with proper formatting
 - **File Attachment Tracking**: Complete record of uploaded files
 - **Guild Isolation**: Each Discord server's data is completely separate
+- **Performance Monitoring**: Database connection health checks and diagnostics
+- **Error Logging**: Dedicated error logging channel for troubleshooting
 
 ## Prerequisites
 
@@ -96,7 +106,7 @@ A comprehensive Discord bot for managing support tickets with automated channel 
 
 3. **Run the bot**
    ```bash
-   java -jar target/AWDCTicket-1.1.0.jar
+   java -jar target/AWDCTicket-1.2.0.jar
    ```
 
 ## Database Setup
@@ -186,6 +196,11 @@ A comprehensive Discord bot for managing support tickets with automated channel 
 | `/setup` | Configure the ticket system | Administrator | Saves configuration to database |
 | `/panel` | Send ticket panel to configured channel | Administrator | None |
 | `/config` | View current configuration | Administrator | Loads from database |
+| `/stats` | View ticket statistics and analytics | Administrator | Queries database for statistics |
+| `/cleanup` | Configure automatic cleanup policies | Administrator | Updates cleanup settings |
+| `/assign` | Assign ticket to specific staff member | Staff | Updates channel permissions |
+| `/closerequest` | Request ticket closure with user approval | Staff | Creates close request in database |
+| `/autoclose exclude` | Exclude ticket from auto-close timeouts | Staff | Updates ticket auto-close settings |
 
 ## Usage
 
@@ -201,15 +216,27 @@ A comprehensive Discord bot for managing support tickets with automated channel 
    - Public role denied access
    - **Ticket counter automatically increments in database**
 
+3. **Ticket Management**:
+   - Users can request ticket closure
+   - Staff can assign tickets to team members
+   - Auto-close timeouts with user confirmation
+
 ### For Staff
 1. **Managing Tickets**:
    - Use 🔒 Close button to close tickets
    - Choose from: Reopen, Generate Transcript, or Delete
+   - Assign tickets to specific team members with `/assign`
+   - Request ticket closure with `/closerequest`
 
 2. **Transcript Generation**:
    - Automatically saves to configured transcript channel
    - Includes all messages, embeds, attachments, and reactions
    - Formatted with proper timestamps (UTC+08:00)
+
+3. **Administrative Tools**:
+   - View comprehensive statistics with `/stats`
+   - Configure cleanup policies with `/cleanup`
+   - Monitor system health and performance
 
 ## Project Structure
 
@@ -220,26 +247,36 @@ src/main/java/com/discordticketbot/
 │   └── TicketBot.java         # Main bot class with database integration
 ├── config/
 │   └── GuildConfig.java       # Server configuration with database persistence
-├── database/                  # NEW: Database layer
+├── database/                  # Database layer
 │   ├── DatabaseManager.java   # Database connection management
-│   └── GuildConfigDAO.java    # Data access layer for configurations
+│   ├── GuildConfigDAO.java    # Data access layer for configurations
+│   ├── TicketLogDAO.java      # Ticket logging and statistics
+│   └── CloseRequestDAO.java   # Close request management
 ├── handlers/
+│   ├── AssignmentHandler.java # Ticket assignment functionality
+│   ├── CleanupHandler.java    # Cleanup policy management
+│   ├── CloseRequestHandler.java # Close request processing
 │   ├── ConfigHandler.java     # Configuration display
 │   ├── HelpHandler.java       # Help command
 │   ├── PanelHandler.java      # Panel deployment
 │   ├── SetupHandler.java      # Bot setup with database saving
+│   ├── StatsHandler.java      # Statistics and analytics
 │   └── TicketHandler.java     # Ticket management
 ├── listeners/
 │   ├── ButtonListener.java    # Button interactions
 │   ├── CommandListener.java   # Slash commands
-│   ├── MessageListener.java   # Message handling
+│   ├── ModalListener.java     # Modal form handling
 │   └── ReadyListener.java     # Bot initialization
 └── utils/
     ├── CommandBuilder.java    # Command registration
+    ├── CommandDiagnosticUtil.java # Command availability diagnostics
+    ├── ErrorLogger.java       # Error logging utilities
     ├── PermissionUtil.java    # Permission checking
     ├── RoleParser.java        # Role parsing utility
     ├── TicketPanelUtil.java   # Panel creation
-    └── TranscriptUtil.java    # Transcript generation
+    ├── TimestampUtil.java     # Timezone and timestamp utilities
+    ├── TranscriptUtil.java    # Transcript generation
+    └── UserDisplayUtil.java   # User display formatting
 ```
 
 ## Configuration Options
@@ -254,14 +291,17 @@ src/main/java/com/discordticketbot/
 The bot automatically creates these tables:
 - **guild_configs** - Server configurations (category, channels, ticket counter)
 - **support_roles** - Support staff roles for each server
-- **ticket_logs** - Optional: Ticket history and analytics (future feature)
+- **ticket_logs** - Ticket history, statistics, and analytics
+- **close_requests** - Ticket closure requests and approvals
 
 ### Guild Configuration (per server, stored in database)
 - **Category ID** - Where ticket channels are created
 - **Panel Channel ID** - Where the ticket panel is displayed  
 - **Transcript Channel ID** - Where transcripts are logged
+- **Error Log Channel ID** - Where bot errors are logged
 - **Support Role IDs** - Staff roles that can manage tickets
 - **Ticket Counter** - Persistent numbering for tickets
+- **Cleanup Policies** - Automatic cleanup settings for logs and requests
 
 ## Features in Detail
 
@@ -271,6 +311,7 @@ The bot automatically creates these tables:
 - **Connection Pooling**: Efficient database connections with HikariCP
 - **Auto-Migration**: Database tables created automatically on startup
 - **Data Recovery**: Bot can restart without losing any configuration
+- **Health Monitoring**: Database connection status and diagnostics
 
 ### Ticket Numbering System
 - **Database-Backed Counter**: Persistent across bot restarts
@@ -279,9 +320,17 @@ The bot automatically creates these tables:
 - Continues numbering even after tickets are deleted
 - Automatically detects existing tickets on startup and resumes counting
 
+### Advanced Ticket Management
+- **Staff Assignment**: Tickets can be assigned to specific team members
+- **Close Requests**: Staff can request closure with user approval
+- **Auto-Close System**: Configurable timeouts with user confirmation
+- **Permission Inheritance**: Automatic permission setup for ticket channels
+- **Ticket Analytics**: Comprehensive statistics and reporting
+
 ### Permission Management
 - Ticket owner: Read, write, attach files
 - Support staff: Full management permissions
+- Assigned staff: Explicit channel access
 - Public: No access
 - Automatic permission updates when tickets are closed/reopened
 
@@ -292,6 +341,14 @@ The bot automatically creates these tables:
 - Reaction tracking
 - UTC+08:00 timezone formatting
 - Discord timestamp conversion
+- HTML transcript generation (optional)
+
+### Statistics and Analytics
+- **Overall Statistics**: Total, open, closed, deleted tickets
+- **Ticket Types**: Breakdown by Report, Support, Appeal
+- **System Status**: Database connectivity, configuration status
+- **Recent Activity**: Latest ticket actions and updates
+- **Performance Metrics**: Response times and system health
 
 ## Troubleshooting
 
@@ -301,6 +358,7 @@ The bot automatically creates these tables:
    - Ensure bot has Administrator permission
    - Check if bot is online and properly invited
    - Verify database connection is working
+   - Check command diagnostics with bot logs
 
 2. **Database connection errors**
    - Check `DATABASE_URL` format: `postgresql://username:password@host:port/database`
@@ -324,12 +382,19 @@ The bot automatically creates these tables:
    - Verify database connection in bot logs
    - Ensure PostgreSQL service is running
 
+6. **Statistics not loading**
+   - Verify database tables exist and are accessible
+   - Check database user permissions
+   - Ensure ticket logging is enabled
+
 ### Error Messages
 - ❌ Administrator permission required
 - ❌ Configuration not found - use `/setup`
 - ❌ Database connection failed - check DATABASE_URL
 - ❌ Channel not found - reconfigure with `/setup`
 - ❌ Already have open ticket - check existing channels
+- ❌ Staff permission required for this action
+- ❌ Database query failed - check connection
 
 ### Database Troubleshooting
 ```bash
@@ -341,6 +406,12 @@ psql $DATABASE_URL -c "\dt"
 
 # View guild configurations
 psql $DATABASE_URL -c "SELECT * FROM guild_configs;"
+
+# Check ticket logs
+psql $DATABASE_URL -c "SELECT COUNT(*) FROM ticket_logs;"
+
+# View close requests
+psql $DATABASE_URL -c "SELECT * FROM close_requests LIMIT 5;"
 ```
 
 ## Dependencies
@@ -371,7 +442,7 @@ psql $DATABASE_URL -c "SELECT * FROM guild_configs;"
 ### Self-Hosted
 1. Set up PostgreSQL database
 2. Configure environment variables
-3. Run the JAR file: `java -jar AWDCTicket-1.1.0.jar`
+3. Run the JAR file: `java -jar AWDCTicket-1.2.0.jar`
 4. Monitor logs for database connection status
 
 ## Contributing
@@ -398,7 +469,10 @@ For issues and questions:
    - Bot logs
    - Database connection status
    - Environment setup details
+   - Command diagnostics output
 
 ---
 
 **Note**: This bot requires Administrator permission and a PostgreSQL database to function properly due to the complex permission management, dynamic channel creation, and persistent data storage features required for a robust ticket system.
+
+**Version**: 1.2.0 - Enhanced with advanced ticket management, statistics, assignment system, and comprehensive database logging.

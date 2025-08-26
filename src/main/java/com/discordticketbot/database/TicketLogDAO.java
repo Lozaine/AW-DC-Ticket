@@ -395,7 +395,7 @@ public class TicketLogDAO {
     public void cleanupOldTicketLogs(int daysOld) {
         String query = """
             DELETE FROM ticket_logs 
-            WHERE status IN ('deleted', 'closed') AND closed_at < CURRENT_TIMESTAMP - INTERVAL '? days'
+            WHERE status IN ('deleted', 'closed') AND closed_at < CURRENT_TIMESTAMP - (? * INTERVAL '1 day')
             """;
 
         try (Connection conn = dbManager.getConnection();

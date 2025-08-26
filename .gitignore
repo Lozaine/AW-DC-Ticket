@@ -46,3 +46,6 @@ dependency-reduced-pom.xml
 
 ### Transcripts (if you don't want to commit them) ###
 transcripts/
+
+### Node module ###
+node_modules/
