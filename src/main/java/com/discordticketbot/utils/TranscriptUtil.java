@@ -12,7 +12,6 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.time.Instant;
 import java.time.LocalDateTime;
-import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
@@ -456,34 +455,74 @@ public class TranscriptUtil {
      */
     public static String serveHtmlTranscript(File htmlFile, String channelName) {
         try {
-            // Create a simple HTTP server to serve the HTML file
-            int port = 3000; // Fixed port for serving HTML transcripts
-            
-            // Start a simple HTTP server in a separate thread
-            Thread serverThread = new Thread(() -> {
-                try {
-                    SimpleHttpServer server = new SimpleHttpServer(port, htmlFile);
-                    server.start();
-                    
-                    // Keep the server running for a reasonable time (e.g., 1 hour)
-                    Thread.sleep(3600000); // 1 hour
-                    server.stop();
-                } catch (Exception e) {
-                    System.err.println("Error running HTTP server: " + e.getMessage());
-                }
-            });
-            serverThread.setDaemon(true);
-            serverThread.start();
-            
-            // Return the URL
-            return "http://localhost:" + port + "/transcript";
-            
-        } catch (Exception e) {
-            System.err.println("Failed to serve HTML transcript: " + e.getMessage());
-            // Fallback: return a file:// URL (less ideal but functional)
-            return "file://" + htmlFile.getAbsolutePath().replace("\\", "/");
-        }
-    }
+			// Pick an available port, preferring 3000 with a few fallbacks
+			int port = 3000;
+			int[] candidates = new int[] { 3000, 3001, 3002, 3003, 3004 };
+			boolean found = false;
+			for (int candidate : candidates) {
+				try (java.net.ServerSocket s = new java.net.ServerSocket(candidate)) {
+					port = candidate;
+					found = true;
+					break;
+				} catch (Exception ignored) {}
+			}
+			if (!found) {
+				try (java.net.ServerSocket ephemeral = new java.net.ServerSocket(0)) {
+					port = ephemeral.getLocalPort();
+				} catch (Exception ignored) {
+					port = 3000; // last resort
+				}
+			}
+ 
+			// Start a simple HTTP server in a separate thread
+			SimpleHttpServer server = new SimpleHttpServer(port, htmlFile);
+			Thread serverThread = new Thread(() -> {
+				try {
+					server.start();
+					// Keep the server running for a reasonable time (e.g., 1 hour)
+					Thread.sleep(3600000); // 1 hour
+					server.stop();
+				} catch (Exception e) {
+					System.err.println("Error running HTTP server: " + e.getMessage());
+				}
+			});
+			serverThread.setDaemon(true);
+			serverThread.start();
+
+			// Give the server a moment to bind, then get actual bound port
+			try { Thread.sleep(120); } catch (InterruptedException ignored) {}
+			int boundPort = server.getBoundPort() != -1 ? server.getBoundPort() : port;
+ 
+ 			// Determine a reachable host for external connections
+ 			String host = "127.0.0.1";
+ 			try {
+ 				java.util.Enumeration<java.net.NetworkInterface> ifaces = java.net.NetworkInterface.getNetworkInterfaces();
+ 				while (ifaces.hasMoreElements()) {
+ 					java.net.NetworkInterface nif = ifaces.nextElement();
+ 					if (!nif.isUp() || nif.isLoopback() || nif.isVirtual()) continue;
+ 					java.util.Enumeration<java.net.InetAddress> addrs = nif.getInetAddresses();
+ 					while (addrs.hasMoreElements()) {
+ 						java.net.InetAddress addr = addrs.nextElement();
+ 						if (addr instanceof java.net.Inet4Address && addr.isSiteLocalAddress()) {
+ 							host = addr.getHostAddress();
+ 							break;
+ 						}
+ 					}
+ 				}
+ 				if ("127.0.0.1".equals(host)) {
+ 					host = java.net.InetAddress.getLocalHost().getHostAddress();
+ 				}
+ 			} catch (Exception ignored) {}
+ 
+ 			// Return the LAN-accessible URL
+ 			return "http://" + host + ":" + boundPort + "/transcript";
+ 			
+ 		} catch (Exception e) {
+ 			System.err.println("Failed to serve HTML transcript: " + e.getMessage());
+ 			// Fallback: return a file:// URL (less ideal but functional)
+ 			return "file://" + htmlFile.getAbsolutePath().replace("\\", "/");
+ 		}
+ 	}
 
     /**
      * Simple HTTP server to serve HTML transcripts.
@@ -493,17 +532,37 @@ public class TranscriptUtil {
         private final File htmlFile;
         private java.net.ServerSocket serverSocket;
         private boolean running = false;
+        private int boundPort = -1; // New field to store the actual bound port
 
         public SimpleHttpServer(int port, File htmlFile) {
             this.port = port;
             this.htmlFile = htmlFile;
         }
 
-        public void start() throws Exception {
-            serverSocket = new java.net.ServerSocket(port);
-            running = true;
-            System.out.println("✅ HTML transcript server started on port " + port);
+        public int getBoundPort() {
+            return boundPort;
+        }
 
+        public void start() throws Exception {
+			try {
+				serverSocket = new java.net.ServerSocket(port, 50, java.net.InetAddress.getByName("0.0.0.0"));
+				boundPort = serverSocket.getLocalPort(); // Set boundPort
+			} catch (java.net.BindException bindEx) {
+				System.err.println("Bind failed on port " + port + ": " + bindEx.getMessage());
+				try {
+					serverSocket = new java.net.ServerSocket(0, 50, java.net.InetAddress.getByName("0.0.0.0"));
+					boundPort = serverSocket.getLocalPort(); // Set boundPort
+					System.out.println("ℹ️ Using ephemeral port " + boundPort + " on 0.0.0.0");
+				} catch (Exception inner) {
+					System.err.println("Ephemeral bind on 0.0.0.0 failed, falling back to loopback: " + inner.getMessage());
+					serverSocket = new java.net.ServerSocket(0, 50, java.net.InetAddress.getByName("127.0.0.1"));
+					boundPort = serverSocket.getLocalPort(); // Set boundPort
+				}
+			}
+			running = true;
+			this.boundPort = serverSocket.getLocalPort();
+			System.out.println("✅ HTML transcript server started on " + serverSocket.getInetAddress().getHostAddress() + ":" + this.boundPort);
+ 
             while (running) {
                 try (java.net.Socket clientSocket = serverSocket.accept()) {
                     handleRequest(clientSocket);
