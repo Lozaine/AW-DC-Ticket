@@ -457,11 +457,7 @@ public class TranscriptUtil {
     public static String serveHtmlTranscript(File htmlFile, String channelName) {
         try {
             // Create a simple HTTP server to serve the HTML file
-<<<<<<< HEAD
             int port = 3000; // Fixed port for serving HTML transcripts
-=======
-            int port = findAvailablePort(8080, 8090);
->>>>>>> 166b6142724c6dc4ee4347bbb233938dc7e83b61
             
             // Start a simple HTTP server in a separate thread
             Thread serverThread = new Thread(() -> {
@@ -490,23 +486,6 @@ public class TranscriptUtil {
     }
 
     /**
-<<<<<<< HEAD
-=======
-     * Find an available port in the given range.
-     */
-    private static int findAvailablePort(int startPort, int endPort) {
-        for (int port = startPort; port <= endPort; port++) {
-            try (java.net.ServerSocket serverSocket = new java.net.ServerSocket(port)) {
-                return port;
-            } catch (Exception e) {
-                // Port is in use, try next one
-            }
-        }
-        return 8080; // Fallback
-    }
-
-    /**
->>>>>>> 166b6142724c6dc4ee4347bbb233938dc7e83b61
      * Simple HTTP server to serve HTML transcripts.
      */
     private static class SimpleHttpServer {
@@ -613,8 +592,4 @@ public class TranscriptUtil {
             }
         }
     }
-<<<<<<< HEAD
 }
-=======
-}
->>>>>>> 166b6142724c6dc4ee4347bbb233938dc7e83b61
