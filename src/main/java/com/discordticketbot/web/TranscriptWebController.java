@@ -18,7 +18,7 @@ import java.util.Optional;
  * Minimal HTTP server to serve transcript files from the local "transcripts" directory.
  *
  * - Port is taken from env PORT (Railway), default 8080.
- * - Public base URL can be overridden via env PUBLIC_BASE_URL (e.g. https://aw-dc-ticket-production.up.railway.app).
+ * - Public base URL can be overridden via env PUBLIC_BASE_URL or RAILWAY_PUBLIC_DOMAIN.
  * - Serves: GET /health and GET /transcripts/{filename}
  */
 public class TranscriptWebController {
@@ -80,11 +80,36 @@ public class TranscriptWebController {
     }
 
     private static String computePublicBaseUrl(int port) {
-        String env = System.getenv("PUBLIC_BASE_URL");
-        if (env != null && !env.isBlank()) {
-            return env.replaceAll("/$", "");
+        // First check for explicit PUBLIC_BASE_URL
+        String publicBaseUrlEnv = System.getenv("PUBLIC_BASE_URL");
+        if (publicBaseUrlEnv != null && !publicBaseUrlEnv.isBlank()) {
+            return ensureHttpsScheme(publicBaseUrlEnv.replaceAll("/$", ""));
         }
+        
+        // Then check for Railway's PUBLIC_DOMAIN
+        String railwayDomain = System.getenv("RAILWAY_PUBLIC_DOMAIN");
+        if (railwayDomain != null && !railwayDomain.isBlank()) {
+            return ensureHttpsScheme(railwayDomain.replaceAll("/$", ""));
+        }
+        
+        // Fallback to localhost
         return "http://localhost:" + port;
+    }
+    
+    /**
+     * Ensures the URL has a proper scheme (https:// for production domains, http:// for localhost)
+     */
+    private static String ensureHttpsScheme(String url) {
+        if (url.startsWith("http://") || url.startsWith("https://")) {
+            return url; // Already has a scheme
+        }
+        
+        // Use https for production domains, http for localhost
+        if (url.contains("localhost") || url.contains("127.0.0.1")) {
+            return "http://" + url;
+        } else {
+            return "https://" + url;
+        }
     }
 
     private static class StaticTranscriptHandler implements HttpHandler {
@@ -150,5 +175,3 @@ public class TranscriptWebController {
         }
     }
 }
-
-
