@@ -46,8 +46,6 @@ public class ButtonListener extends ListenerAdapter {
                         ticketHandler.reopenTicket(event);
                 case "generate_transcript" ->
                         ticketHandler.generateAndSendTranscript(event);
-                case "generate_html_transcript" ->
-                        ticketHandler.generateHtmlTranscript(event);
                 case "delete_ticket" ->
                         ticketHandler.deleteTicket(event);
 

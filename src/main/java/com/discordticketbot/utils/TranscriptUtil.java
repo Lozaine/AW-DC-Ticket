@@ -12,6 +12,7 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.time.Instant;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
@@ -450,67 +451,20 @@ public class TranscriptUtil {
     }
 
     /**
-     * Determine the server port, preferring the standard PORT env (e.g., Railway).
-     */
-    private static int getServerPort() {
-        String envPort = System.getenv("PORT");
-        if (envPort != null) {
-            try {
-                return Integer.parseInt(envPort);
-            } catch (NumberFormatException ignored) {
-                // fall through
-            }
-        }
-        return 3000;
-    }
-
-    /**
-     * Return a configured base URL/domain if present in environment variables.
-     */
-    private static String getConfiguredBaseUrl() {
-        String[] keys = new String[] { "PUBLIC_BASE_URL", "BASE_URL", "RAILWAY_PUBLIC_DOMAIN", "RAILWAY_STATIC_URL" };
-        for (String key : keys) {
-            String val = System.getenv(key);
-            if (val != null && !val.trim().isEmpty()) {
-                return val.trim();
-            }
-        }
-        return null;
-    }
-
-    /**
-     * Build a public URL for accessing the served transcript.
-     * Prefers PUBLIC_BASE_URL/BASE_URL/RAILWAY_PUBLIC_DOMAIN if available.
-     */
-    private static String buildPublicUrl(int port, String path) {
-        String base = getConfiguredBaseUrl();
-        if (base != null && !base.isEmpty()) {
-            if (!base.startsWith("http://") && !base.startsWith("https://")) {
-                base = "https://" + base;
-            }
-            if (base.endsWith("/")) {
-                base = base.substring(0, base.length() - 1);
-            }
-            return base + path;
-        }
-        return "http://localhost:" + port + path;
-    }
-
-    /**
      * Serves an HTML transcript file via a simple web server and returns a URL.
      * This creates a temporary web server to serve the HTML file.
      */
     public static String serveHtmlTranscript(File htmlFile, String channelName) {
         try {
             // Create a simple HTTP server to serve the HTML file
-            int port = getServerPort();
-            
+            int port = findAvailablePort(8080, 8090);
+
             // Start a simple HTTP server in a separate thread
             Thread serverThread = new Thread(() -> {
                 try {
                     SimpleHttpServer server = new SimpleHttpServer(port, htmlFile);
                     server.start();
-                    
+
                     // Keep the server running for a reasonable time (e.g., 1 hour)
                     Thread.sleep(3600000); // 1 hour
                     server.stop();
@@ -520,15 +474,29 @@ public class TranscriptUtil {
             });
             serverThread.setDaemon(true);
             serverThread.start();
-            
-            // Return the URL using public domain if configured (e.g., Railway)
-            return buildPublicUrl(port, "/transcript");
-            
+
+            // Return the URL
+            return "http://localhost:" + port + "/transcript";
+
         } catch (Exception e) {
             System.err.println("Failed to serve HTML transcript: " + e.getMessage());
             // Fallback: return a file:// URL (less ideal but functional)
             return "file://" + htmlFile.getAbsolutePath().replace("\\", "/");
         }
+    }
+
+    /**
+     * Find an available port in the given range.
+     */
+    private static int findAvailablePort(int startPort, int endPort) {
+        for (int port = startPort; port <= endPort; port++) {
+            try (java.net.ServerSocket serverSocket = new java.net.ServerSocket(port)) {
+                return port;
+            } catch (Exception e) {
+                // Port is in use, try next one
+            }
+        }
+        return 8080; // Fallback
     }
 
     /**
@@ -575,57 +543,21 @@ public class TranscriptUtil {
         private void handleRequest(java.net.Socket clientSocket) throws Exception {
             try (java.io.OutputStream out = clientSocket.getOutputStream();
                  java.io.BufferedReader in = new java.io.BufferedReader(
-                     new java.io.InputStreamReader(clientSocket.getInputStream()))) {
+                         new java.io.InputStreamReader(clientSocket.getInputStream()))) {
 
                 // Read the first line of the request
                 String requestLine = in.readLine();
                 if (requestLine == null) return;
 
-                // Debug logging
-                System.out.println("🔍 HTTP Request: " + requestLine);
-
-                // Parse the request line to get the path
-                String[] requestParts = requestLine.split(" ");
-                if (requestParts.length < 2) return;
-                
-                String requestPath = requestParts[1];
-                System.out.println("🔍 Request Path: " + requestPath);
-                
-                // Check if the request is for the transcript
-                if (!requestPath.equals("/transcript")) {
-                    // Return 404 for unknown paths
-                    System.out.println("❌ 404 - Unknown path: " + requestPath);
-                    String notFoundResponse = "HTTP/1.1 404 Not Found\r\n" +
-                                            "Content-Type: text/plain\r\n" +
-                                            "Content-Length: 13\r\n" +
-                                            "\r\n" +
-                                            "Not Found";
-                    out.write(notFoundResponse.getBytes());
-                    return;
-                }
-
-                // Check if the HTML file exists
-                if (!htmlFile.exists()) {
-                    System.out.println("❌ 404 - HTML file not found: " + htmlFile.getAbsolutePath());
-                    String notFoundResponse = "HTTP/1.1 404 Not Found\r\n" +
-                                            "Content-Type: text/plain\r\n" +
-                                            "Content-Length: 13\r\n" +
-                                            "\r\n" +
-                                            "File Not Found";
-                    out.write(notFoundResponse.getBytes());
-                    return;
-                }
-
-                // Success response - serve the HTML file
-                System.out.println("✅ Serving HTML file: " + htmlFile.getAbsolutePath() + " (size: " + htmlFile.length() + " bytes)");
+                // Simple response
                 String response = "HTTP/1.1 200 OK\r\n" +
-                                "Content-Type: text/html; charset=UTF-8\r\n" +
-                                "Content-Length: " + htmlFile.length() + "\r\n" +
-                                "Access-Control-Allow-Origin: *\r\n" +
-                                "\r\n";
+                        "Content-Type: text/html; charset=UTF-8\r\n" +
+                        "Content-Length: " + htmlFile.length() + "\r\n" +
+                        "Access-Control-Allow-Origin: *\r\n" +
+                        "\r\n";
 
                 out.write(response.getBytes());
-                
+
                 // Send the HTML file content
                 try (java.io.FileInputStream fis = new java.io.FileInputStream(htmlFile)) {
                     byte[] buffer = new byte[1024];
@@ -634,7 +566,6 @@ public class TranscriptUtil {
                         out.write(buffer, 0, bytesRead);
                     }
                 }
-                System.out.println("✅ HTML file served successfully");
             }
         }
     }
