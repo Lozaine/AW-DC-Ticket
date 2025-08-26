@@ -1,86 +1,115 @@
-# Release Notes — v1.3.0 (2025-08-25)
+# Release Notes — v1.4.0 (2025-08-27)
 
 ## Highlights
-- Automatic ticket cleanup policies (daily scheduler + admin command)
-- Enhanced transcript formatting with optional HTML output
-- Ticket assignment to specific staff via slash command
+- 🌐 **Complete HTML Transcript System** with direct web access
+- 🚀 **Built-in HTTP Server** for serving transcripts
+- 🔗 **Direct Link System** for easy transcript sharing
+- 📱 **Responsive Design** for mobile and desktop viewing
+- 🎨 **Professional Styling** with Discord-inspired theme
 
-## What’s New
-### 1) Automatic Ticket Cleanup
-- Daily background task cleans up old records based on per-guild settings.
-- Admins can configure retention using `/cleanup`:
-<<<<<<< HEAD
-  - logs_days (default 30): retain closed/deleted ticket logs
-  - requests_days (default 30): retain processed close-requests
-  - transcript_html (default true): toggle HTML transcript generation
+## What's New
 
-Implementation:
-- TicketBot.startCleanupScheduler() runs a daily job invoking:
-  - TicketLogDAO.cleanupOldTicketLogs(days)
-  - CloseRequestDAO.cleanupOldCloseRequests(days)
-- Command handler: CleanupHandler (registered in CommandListener)
-- Config stored per guild in GuildConfig:
-  - cleanupTicketLogsDays
-  - cleanupCloseRequestsDays
-  - transcriptHtmlEnabled
-=======
-    - logs_days (default 30): retain closed/deleted ticket logs
-    - requests_days (default 30): retain processed close-requests
-    - transcript_html (default true): toggle HTML transcript generation
+### 1) Enhanced Transcript Generation System
+- **Dual Format Support**: Generates both text (.txt) and HTML (.html) transcripts simultaneously
+- **HTML Transcripts**: Beautiful, modern Discord-inspired styling with responsive design
+- **Rich Content Display**: Shows messages, embeds, attachments, reactions, and close request details
+- **Professional Layout**: Clean, organized presentation suitable for record keeping and documentation
 
-Implementation:
-- TicketBot.startCleanupScheduler() runs a daily job invoking:
-    - TicketLogDAO.cleanupOldTicketLogs(days)
-    - CloseRequestDAO.cleanupOldCloseRequests(days)
-- Command handler: CleanupHandler (registered in CommandListener)
-- Config stored per guild in GuildConfig:
-    - cleanupTicketLogsDays
-    - cleanupCloseRequestsDays
-    - transcriptHtmlEnabled
->>>>>>> 166b6142724c6dc4ee4347bbb233938dc7e83b61
+### 2) Direct Link System
+- **Unique URLs**: Each transcript gets a UUID for secure access control
+- **Web Access**: HTML transcripts accessible via web browser from anywhere
+- **Railway Integration**: Uses `RAILWAY_PUBLIC_DOMAIN` environment variable for public access
+- **Direct Link Button**: Staff can click "🌐 Open HTML Transcript" button to open in browser
 
-### 2) Enhanced Transcripts
-- HTML transcripts with styled layout, author tags, timestamps, embeds, reactions, attachments, and close-request details.
-- When enabled, both TXT and HTML files are uploaded to the transcript channel.
+### 3) Built-in HTTP Server
+- **Port 8080**: Configurable HTTP server runs alongside the Discord bot
+- **Endpoints**: 
+  - `/transcript/{uuid}` - Serve HTML transcripts
+  - `/health` - Health check
+  - `/` - Server info page
+- **Automatic Startup**: Server starts automatically when bot launches
 
-Implementation:
-- TranscriptUtil.createHtmlTranscript(...)
-- TranscriptUtil.saveHtmlTranscriptToFile(...)
-- TicketHandler.generateAndSendTranscript(...) now attaches HTML when GuildConfig.transcriptHtmlEnabled is true.
+### 4) Enhanced User Experience
+- **Staff Access Control**: Only staff members can generate transcripts
+- **Visual Feedback**: Clear indication when HTML transcript is available
+- **Mobile Friendly**: Responsive design works on all devices
+- **Security Features**: HTML escaping prevents XSS attacks
 
-### 3) Ticket Assignment to Staff
-- New `/assign member:@User` command (staff-only) to assign tickets to specific team members.
-- Grants explicit channel permissions to the assignee and posts an assignment embed.
+## Technical Implementation
 
-Implementation:
-- AssignmentHandler (wired in CommandListener)
+### New Files
+- `HttpServerUtil.java` - Simple HTTP server for serving transcripts
+- `TRANSCRIPT_FEATURES.md` - Comprehensive documentation
+
+### Enhanced Files
+- `TranscriptUtil.java` - Added HTML generation, direct link functionality, and file management
+- `TicketHandler.java` - Updated to generate both formats and include Direct Link button
+- `Application.java` - Modified to start HTTP server alongside Discord bot
+- `application.properties` - Added Railway domain configuration
+
+### Key Features
+- **File Storage**: `./transcripts/` directory with unique naming convention
+- **Environment Variables**: `RAILWAY_PUBLIC_DOMAIN` for public access
+- **Error Handling**: Graceful fallbacks and comprehensive error logging
+- **Resource Management**: Proper cleanup and shutdown procedures
+
+## Configuration
+
+### Environment Variables
+```bash
+RAILWAY_PUBLIC_DOMAIN=aw-dc-ticket-production.up.railway.app
+BOT_TOKEN=your_discord_bot_token
+```
+
+### Application Properties
+```properties
+app.base-url=https://aw-dc-ticket-production.up.railway.app
+railway.public.domain=aw-dc-ticket-production.up.railway.app
+```
+
+## Usage
+
+### For Staff/Admins
+1. **Generate Transcript**: Click the "📄 Transcript" button in any ticket channel
+2. **Access Files**: Both .txt and .html files are saved to the transcript channel
+3. **View HTML**: Click the "🌐 Open HTML Transcript" button to open in browser
+4. **Direct Access**: Use the generated URL to access the transcript anytime
+
+### For Users
+- HTML transcripts are accessible via the direct link
+- No authentication required for viewing transcripts
+- Responsive design works on all devices
 
 ## Commands
-- /cleanup logs_days:<int?> requests_days:<int?> transcript_html:<bool?> (Admin)
-- /assign member:<user> (Staff)
-- Existing commands unaffected; help updated to reflect new features.
+- Existing transcript generation via "📄 Transcript" button (enhanced)
+- No new slash commands - all functionality integrated into existing UI
 
 ## Upgrade Notes
-- No DB schema changes required beyond existing ticket_logs and close_requests tables.
-- Ensure the bot has sufficient permissions to manage channel overrides for assignments.
-- Commands are registered globally by ReadyListener via CommandBuilder.
+- **No DB schema changes** required
+- **HTTP server starts automatically** on port 8080
+- **Environment variable setup** needed for public access
+- **Backward compatible** - existing text transcripts still work
 
 ## Files Changed (Key)
-- Config: GuildConfig (new cleanup + transcript flags)
-- Commands: CommandBuilder, CommandListener
-- Handlers: CleanupHandler, AssignmentHandler, TicketHandler (transcript wiring)
-- Bot: TicketBot (daily scheduler)
-- Help: HelpHandler (feature list updated)
+- **New**: `HttpServerUtil.java`, `TRANSCRIPT_FEATURES.md`
+- **Enhanced**: `TranscriptUtil.java`, `TicketHandler.java`, `Application.java`
+- **Config**: `application.properties`
 
 ## Verification
-- Build: mvn -DskipTests package should succeed
-- Smoke tests:
-<<<<<<< HEAD
-  - Run `/cleanup transcript_html:true`, generate transcript -> expect both TXT and HTML
-  - Run `/assign @Staff` inside a ticket -> assignee gains access and embed posts
-  - Wait for daily cleanup or run `/cleanup logs_days:30 requests_days:30` to trigger immediate cleanups
-=======
-    - Run `/cleanup transcript_html:true`, generate transcript -> expect both TXT and HTML
-    - Run `/assign @Staff` inside a ticket -> assignee gains access and embed posts
-    - Wait for daily cleanup or run `/cleanup logs_days:30 requests_days:30` to trigger immediate cleanups
->>>>>>> 166b6142724c6dc4ee4347bbb233938dc7e83b61
+- **Build**: `mvn clean compile` should succeed
+- **HTTP Server**: Check `/health` endpoint after bot startup
+- **Transcript Generation**: Generate transcript in any ticket channel
+- **Direct Links**: Click "🌐 Open HTML Transcript" button to verify web access
+
+## Security Features
+- **HTML Escaping**: Prevents XSS attacks
+- **Unique IDs**: Each transcript has UUID for access control
+- **File Validation**: Only serves files from transcripts directory
+- **No Authentication Required**: Public access for transcript viewing
+
+## Future Enhancements
+- Transcript search functionality
+- Transcript archiving and cleanup
+- User authentication for sensitive transcripts
+- Export to PDF format
+- Transcript analytics and statistics
