@@ -7,6 +7,7 @@ import com.discordticketbot.listeners.CommandListener;
 import com.discordticketbot.listeners.ButtonListener;
 import com.discordticketbot.listeners.ReadyListener;
 import com.discordticketbot.listeners.ModalListener; // Import ModalListener
+import com.discordticketbot.listeners.SelectMenuListener;
 import com.discordticketbot.utils.CommandDiagnosticUtil;
 import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.JDABuilder;
@@ -61,7 +62,8 @@ public class TicketBot {
                         new ReadyListener(guildConfigs),
                         new CommandListener(guildConfigs),
                         new ButtonListener(guildConfigs),
-                        new ModalListener(guildConfigs)
+                        new ModalListener(guildConfigs),
+                        new SelectMenuListener()
                 )
                 .build();
 
